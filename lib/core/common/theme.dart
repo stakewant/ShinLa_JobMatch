@@ -8,11 +8,12 @@ class AppTheme {
       useMaterial3: true,
       scaffoldBackgroundColor: Colors.white,
       colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
+      splashFactory: InkRipple.splashFactory,
 
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
-        elevation: 0.0,
+        elevation: 0,
         surfaceTintColor: Colors.white,
       ),
 
@@ -34,6 +35,7 @@ class AppTheme {
         ),
       ),
 
+      // Flutter 3.38+: ThemeData.cardTheme expects CardThemeData?
       cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 0.0,

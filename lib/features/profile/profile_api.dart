@@ -1,13 +1,35 @@
-import '../auth/auth_api.dart';
+import '../../core/api/dio_client.dart';
+import '../../core/api/api_endpoints.dart';
 import 'profile_model.dart';
 
-/// MVP에서는 AuthApi 저장소를 재사용.
-/// 실서버로 가면 Profile 전용 API로 분리하면 됨.
 class ProfileApi {
-  ProfileApi(this._authApi);
+  final DioClient _client;
+  ProfileApi(this._client);
 
-  final AuthApi _authApi;
+  // GET /api/users/me/student-profile (STUDENT only)
+  Future<StudentProfile> getMyStudentProfile() async {
+    final res = await _client.dio.get(ApiEndpoints.myStudentProfile);
+    return StudentProfile.fromJson(res.data as Map<String, dynamic>);
+  }
 
-  Future<UserProfile> getMe(String userId) => _authApi.getMyProfile(userId);
-  Future<UserProfile> updateMe(UserProfile profile) => _authApi.updateMyProfile(profile);
+  // PUT /api/users/me/student-profile (STUDENT only)
+  Future<StudentProfile> upsertMyStudentProfile({
+    required String name,
+    String? school,
+    String? major,
+    required List<String> skills,
+    String? availableTime,
+  }) async {
+    final res = await _client.dio.put(
+      ApiEndpoints.myStudentProfile,
+      data: {
+        'name': name,
+        'school': school,
+        'major': major,
+        'skills': skills,
+        'available_time': availableTime,
+      },
+    );
+    return StudentProfile.fromJson(res.data as Map<String, dynamic>);
+  }
 }

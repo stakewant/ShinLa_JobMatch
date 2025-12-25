@@ -1,54 +1,58 @@
-import '../../core/common/utils.dart';
+import '../../core/api/dio_client.dart';
+import '../../core/api/api_endpoints.dart';
 import 'chat_model.dart';
 
 class ChatApi {
-  static final List<ChatRoom> _rooms = [];
-  static final Map<String, List<ChatMessage>> _messagesByRoom = {};
+  final DioClient _client;
+  ChatApi(this._client);
 
-  Future<String> getOrCreateRoom({
-    required String postId,
-    required String employerId,
-    required String workerId,
+  Future<ChatRoomOut> createRoom({
+    required int jobPostId,
+    required int studentId,
   }) async {
-    final existing = _rooms.where((r) => r.postId == postId && r.workerId == workerId).toList();
-    if (existing.isNotEmpty) return existing.first.roomId;
-
-    final roomId = UiUtils.newId();
-    final room = ChatRoom(
-      roomId: roomId,
-      postId: postId,
-      employerId: employerId,
-      workerId: workerId,
-      createdAt: DateTime.now(),
+    final res = await _client.dio.post(
+      ApiEndpoints.chatRooms,
+      data: {
+        'job_post_id': jobPostId,
+        'student_id': studentId,
+      },
     );
-    _rooms.add(room);
-    _messagesByRoom[roomId] = [];
-    return roomId;
+    return ChatRoomOut.fromJson(res.data as Map<String, dynamic>);
   }
 
-  Future<List<ChatRoom>> listRoomsForUser(String userId) async {
-    final rooms = _rooms.where((r) => r.employerId == userId || r.workerId == userId).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return List.unmodifiable(rooms);
+  Future<List<ChatRoomOut>> listRooms() async {
+    final res = await _client.dio.get(ApiEndpoints.chatRooms);
+    final data = res.data;
+
+    if (data is List) {
+      return data
+          .map((e) => ChatRoomOut.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    throw Exception('Unexpected response: expected List');
   }
 
-  Future<List<ChatMessage>> listMessages(String roomId) async {
-    return List.unmodifiable(_messagesByRoom[roomId] ?? []);
+  Future<List<ChatMessageOut>> listMessages(int roomId) async {
+    final res = await _client.dio.get('${ApiEndpoints.chatRooms}/$roomId/messages');
+    final data = res.data;
+
+    if (data is List) {
+      return data
+          .map((e) => ChatMessageOut.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    throw Exception('Unexpected response: expected List');
   }
 
-  Future<void> sendMessage({
-    required String roomId,
-    required String senderId,
-    required String text,
-  }) async {
-    final msg = ChatMessage(
-      messageId: UiUtils.newId(),
-      roomId: roomId,
-      senderId: senderId,
-      text: text,
-      createdAt: DateTime.now(),
+  Future<ChatMessageOut> sendMessage(int roomId, String content) async {
+    final res = await _client.dio.post(
+      '${ApiEndpoints.chatRooms}/$roomId/messages',
+      data: {'content': content},
     );
-    _messagesByRoom.putIfAbsent(roomId, () => []);
-    _messagesByRoom[roomId]!.add(msg);
+    return ChatMessageOut.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<void> markRead(int roomId) async {
+    await _client.dio.put('${ApiEndpoints.chatRooms}/$roomId/read');
   }
 }

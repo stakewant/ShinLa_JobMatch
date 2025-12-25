@@ -1,27 +1,48 @@
-enum UserRole { employer, worker }
+enum UserRole { STUDENT, COMPANY, ADMIN }
 
-class AuthUser {
-  AuthUser({
-    required this.userId,
-    required this.username,
+UserRole userRoleFromString(String v) {
+  return UserRole.values.firstWhere(
+        (e) => e.name == v,
+    orElse: () => UserRole.STUDENT,
+  );
+}
+
+class UserOut {
+  final int id;
+  final String? email;
+  final String? phone;
+  final UserRole role;
+  final bool isActive;
+
+  UserOut({
+    required this.id,
+    required this.email,
+    required this.phone,
     required this.role,
+    required this.isActive,
   });
 
-  final String userId;
-  final String username;
-  final UserRole role;
+  factory UserOut.fromJson(Map<String, dynamic> j) {
+    return UserOut(
+      id: (j['id'] as num).toInt(),
+      email: j['email'] as String?,
+      phone: j['phone'] as String?,
+      role: userRoleFromString(j['role'] as String),
+      isActive: (j['is_active'] as bool?) ?? true,
+    );
+  }
+}
 
-  Map<String, dynamic> toJson() => {
-    'userId': userId,
-    'username': username,
-    'role': role.name,
-  };
+class TokenResponse {
+  final String accessToken;
+  final String tokenType;
 
-  factory AuthUser.fromJson(Map<String, dynamic> json) {
-    return AuthUser(
-      userId: json['userId'] as String,
-      username: json['username'] as String,
-      role: UserRole.values.firstWhere((e) => e.name == json['role']),
+  TokenResponse({required this.accessToken, required this.tokenType});
+
+  factory TokenResponse.fromJson(Map<String, dynamic> j) {
+    return TokenResponse(
+      accessToken: j['access_token'] as String,
+      tokenType: j['token_type'] as String,
     );
   }
 }

@@ -1,31 +1,45 @@
-class ChatRoom {
-  ChatRoom({
-    required this.roomId,
-    required this.postId,
-    required this.employerId,
-    required this.workerId,
-    required this.createdAt,
+class ChatRoomOut {
+  final int id;
+  final int jobPostId;
+  final int companyId;
+  final int studentId;
+
+  ChatRoomOut({
+    required this.id,
+    required this.jobPostId,
+    required this.companyId,
+    required this.studentId,
   });
 
-  final String roomId;
-  final String postId;
-  final String employerId;
-  final String workerId;
-  final DateTime createdAt;
+  factory ChatRoomOut.fromJson(Map<String, dynamic> j) {
+    return ChatRoomOut(
+      id: (j['id'] as num).toInt(),
+      jobPostId: (j['job_post_id'] as num).toInt(),
+      companyId: (j['company_id'] as num).toInt(),
+      studentId: (j['student_id'] as num).toInt(),
+    );
+  }
 }
 
-class ChatMessage {
-  ChatMessage({
-    required this.messageId,
-    required this.roomId,
+class ChatMessageOut {
+  final int id;
+  final int chatRoomId;
+  final int senderId;
+  final String content;
+
+  ChatMessageOut({
+    required this.id,
+    required this.chatRoomId,
     required this.senderId,
-    required this.text,
-    required this.createdAt,
+    required this.content,
   });
 
-  final String messageId;
-  final String roomId;
-  final String senderId;
-  final String text;
-  final DateTime createdAt;
+  factory ChatMessageOut.fromJson(Map<String, dynamic> j) {
+    return ChatMessageOut(
+      id: (j['id'] as num).toInt(),
+      chatRoomId: (j['chat_room_id'] as num).toInt(),
+      senderId: (j['sender_id'] as num).toInt(),
+      content: (j['content'] as String?) ?? '',
+    );
+  }
 }

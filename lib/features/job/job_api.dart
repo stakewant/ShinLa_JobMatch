@@ -1,70 +1,85 @@
-import '../../core/common/utils.dart';
-import '../auth/auth_model.dart';
+import '../../core/api/dio_client.dart';
+import '../../core/api/api_endpoints.dart';
 import 'job_model.dart';
 
-/// MockServer 역할을 하는 In-memory API
 class JobApi {
-  static final List<JobPost> _jobs = [
-    JobPost(
-      id: '1',
-      title: '카페 알바 구합니다',
-      shopName: '신라카페',
-      wage: 10000,
-      content: '주말 오후 가능자 우대',
-      employerId: 'seed_employer',
-      createdAt: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-  ];
+  final DioClient _client;
+  JobApi(this._client);
 
-  Future<List<JobPost>> list() async {
-    _jobs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return List.unmodifiable(_jobs);
-  }
-
-  Future<JobPost> create({
-    required String employerId,
-    required String title,
-    required String shopName,
-    required int wage,
-    required String content,
-  }) async {
-    final post = JobPost(
-      id: UiUtils.newId(),
-      title: title,
-      shopName: shopName,
-      wage: wage,
-      content: content,
-      employerId: employerId,
-      createdAt: DateTime.now(),
+  // GET /api/job-posts?region=...&status=OPEN|CLOSED
+  Future<List<JobPostOut>> list({String? region, JobStatus? status}) async {
+    final res = await _client.dio.get(
+      ApiEndpoints.jobPosts,
+      queryParameters: {
+        if (region != null && region.trim().isNotEmpty) 'region': region.trim(),
+        if (status != null) 'status': status.name,
+      },
     );
-    _jobs.add(post);
-    return post;
+
+    final data = res.data;
+    if (data is List) {
+      return data.map((e) => JobPostOut.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Unexpected response: expected List');
   }
 
-  Future<JobPost> update({
-    required String requesterId,
-    required String id,
+  // GET /api/job-posts/{id}
+  Future<JobPostOut> detail(int id) async {
+    final res = await _client.dio.get('${ApiEndpoints.jobPosts}/$id');
+    return JobPostOut.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  // POST /api/job-posts
+  Future<JobPostOut> create({
     required String title,
-    required String shopName,
-    required int wage,
-    required String content,
+    required int? wage,
+    required String description,
+    required String region,
+    required JobStatus status,
   }) async {
-    final idx = _jobs.indexWhere((e) => e.id == id);
-    if (idx < 0) throw Exception('게시글이 없습니다.');
-    final cur = _jobs[idx];
-    if (cur.employerId != requesterId) throw Exception('수정 권한이 없습니다.');
-    final updated = cur.copyWith(title: title, shopName: shopName, wage: wage, content: content);
-    _jobs[idx] = updated;
-    return updated;
+    final res = await _client.dio.post(
+      ApiEndpoints.jobPosts,
+      data: {
+        'title': title,
+        'wage': wage,
+        'description': description,
+        'region': region,
+        'status': status.name,
+      },
+    );
+    return JobPostOut.fromJson(res.data as Map<String, dynamic>);
   }
 
-  Future<void> delete({
-    required String requesterId,
-    required String id,
-  }) async {
-    final idx = _jobs.indexWhere((e) => e.id == id);
-    if (idx < 0) throw Exception('게시글이 없습니다.');
-    if (_jobs[idx].employerId != requesterId) throw Exception('삭제 권한이 없습니다.');
-    _jobs.removeAt(idx);
+  // PUT /api/job-posts/{id}
+  Future<JobPostOut> update(
+      int id, {
+        String? title,
+        int? wage,
+        String? description,
+        String? region,
+        JobStatus? status,
+        bool? isDeleted,
+      }) async {
+    final res = await _client.dio.put(
+      '${ApiEndpoints.jobPosts}/$id',
+      data: {
+        if (title != null) 'title': title,
+        if (wage != null) 'wage': wage,
+        if (description != null) 'description': description,
+        if (region != null) 'region': region,
+        if (status != null) 'status': status.name,
+        if (isDeleted != null) 'is_deleted': isDeleted,
+      },
+    );
+    return JobPostOut.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  // POST /api/job-posts/{id}/images
+  Future<JobImageOut> addImage(int jobPostId, String imageUrl) async {
+    final res = await _client.dio.post(
+      '${ApiEndpoints.jobPosts}/$jobPostId/images',
+      data: {'image_url': imageUrl},
+    );
+    return JobImageOut.fromJson(res.data as Map<String, dynamic>);
   }
 }

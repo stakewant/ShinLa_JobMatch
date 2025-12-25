@@ -3,43 +3,40 @@ import 'chat_api.dart';
 import 'chat_model.dart';
 
 class ChatController extends ChangeNotifier {
-  final _api = ChatApi();
+  final ChatApi _api;
+  ChatController(this._api);
 
-  List<ChatRoom> _rooms = [];
-  List<ChatRoom> get rooms => _rooms;
+  List<ChatRoomOut> _rooms = [];
+  List<ChatRoomOut> get rooms => _rooms;
 
-  final Map<String, List<ChatMessage>> _messages = {};
-  List<ChatMessage> messagesOf(String roomId) => _messages[roomId] ?? const [];
+  final Map<int, List<ChatMessageOut>> _messagesByRoom = {};
+  List<ChatMessageOut> messages(int roomId) => _messagesByRoom[roomId] ?? const [];
 
-  Future<void> refreshRooms(String userId) async {
-    _rooms = await _api.listRoomsForUser(userId);
+  Future<void> refreshRooms() async {
+    _rooms = await _api.listRooms();
     notifyListeners();
   }
 
-  Future<String> getOrCreateRoom({
-    required String postId,
-    required String employerId,
-    required String workerId,
+  Future<ChatRoomOut> createRoom({
+    required int jobPostId,
+    required int studentId,
   }) async {
-    final roomId = await _api.getOrCreateRoom(
-      postId: postId,
-      employerId: employerId,
-      workerId: workerId,
-    );
-    return roomId;
+    final room = await _api.createRoom(jobPostId: jobPostId, studentId: studentId);
+    await refreshRooms();
+    return room;
   }
 
-  Future<void> loadMessages(String roomId) async {
-    _messages[roomId] = await _api.listMessages(roomId);
+  Future<void> refreshMessages(int roomId) async {
+    _messagesByRoom[roomId] = await _api.listMessages(roomId);
     notifyListeners();
   }
 
-  Future<void> send({
-    required String roomId,
-    required String senderId,
-    required String text,
-  }) async {
-    await _api.sendMessage(roomId: roomId, senderId: senderId, text: text);
-    await loadMessages(roomId);
+  Future<void> send(int roomId, String content) async {
+    await _api.sendMessage(roomId, content);
+    await refreshMessages(roomId);
+  }
+
+  Future<void> read(int roomId) async {
+    await _api.markRead(roomId);
   }
 }

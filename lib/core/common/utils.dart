@@ -7,7 +7,9 @@ class UiUtils {
     );
   }
 
-  static String newId() => DateTime.now().millisecondsSinceEpoch.toString();
-
-  static int? tryParseInt(String v) => int.tryParse(v.trim());
+  static int? tryParseInt(String v) {
+    final t = v.trim();
+    if (t.isEmpty) return null;
+    return int.tryParse(t);
+  }
 }

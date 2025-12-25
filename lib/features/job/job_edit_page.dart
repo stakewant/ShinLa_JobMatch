@@ -3,71 +3,126 @@ import 'package:flutter/material.dart';
 import '../../core/common/utils.dart';
 import '../../core/common/widgets.dart';
 import '../../main.dart';
+import '../auth/auth_model.dart';
 import 'job_model.dart';
 
 class JobEditPage extends StatefulWidget {
-  const JobEditPage({super.key, required this.post});
-  final JobPost post;
+  final JobPostOut job;
+  const JobEditPage({super.key, required this.job});
 
   @override
   State<JobEditPage> createState() => _JobEditPageState();
 }
 
 class _JobEditPageState extends State<JobEditPage> {
-  late final TextEditingController _title;
-  late final TextEditingController _shop;
-  late final TextEditingController _wage;
-  late final TextEditingController _content;
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _wageCtrl;
+  late final TextEditingController _regionCtrl;
+  late final TextEditingController _descCtrl;
+
+  late JobStatus _status;
   bool _loading = false;
 
   @override
   void initState() {
     super.initState();
-    _title = TextEditingController(text: widget.post.title);
-    _shop = TextEditingController(text: widget.post.shopName);
-    _wage = TextEditingController(text: widget.post.wage.toString());
-    _content = TextEditingController(text: widget.post.content);
+    _titleCtrl = TextEditingController(text: widget.job.title);
+    _wageCtrl = TextEditingController(text: widget.job.wage?.toString() ?? '');
+    _regionCtrl = TextEditingController(text: widget.job.region);
+    _descCtrl = TextEditingController(text: widget.job.description);
+    _status = widget.job.status;
   }
 
   @override
   void dispose() {
-    _title.dispose();
-    _shop.dispose();
-    _wage.dispose();
-    _content.dispose();
+    _titleCtrl.dispose();
+    _wageCtrl.dispose();
+    _regionCtrl.dispose();
+    _descCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    final state = AppScope.of(context);
-    final me = state.auth.me;
-    if (me == null) return;
+  Future<void> _save() async {
+    final scope = AppScope.of(context);
+    final me = scope.auth.me;
 
-    final title = _title.text.trim();
-    final shop = _shop.text.trim();
-    final wage = UiUtils.tryParseInt(_wage.text);
-    final content = _content.text.trim();
+    if (me == null || me.role != UserRole.COMPANY) {
+      UiUtils.snack(context, 'Only COMPANY can edit job posts.');
+      return;
+    }
+    if (me.id != widget.job.companyId) {
+      UiUtils.snack(context, 'You can only edit your own posts.');
+      return;
+    }
 
-    if (title.isEmpty || shop.isEmpty || wage == null) {
-      UiUtils.snack(context, '제목/가게/시급(숫자)을 확인하세요.');
+    final title = _titleCtrl.text.trim();
+    final region = _regionCtrl.text.trim();
+    final desc = _descCtrl.text.trim();
+    final wage = UiUtils.tryParseInt(_wageCtrl.text);
+
+    if (title.isEmpty || region.isEmpty) {
+      UiUtils.snack(context, 'Title and region are required.');
       return;
     }
 
     setState(() => _loading = true);
     try {
-      await state.jobs.updateFromForm(
-        requesterId: me.userId,
-        id: widget.post.id,
+      await scope.jobs.edit(
+        widget.job.id,
         title: title,
-        shopName: shop,
         wage: wage,
-        content: content,
+        description: desc,
+        region: region,
+        status: _status,
       );
       if (!mounted) return;
-      UiUtils.snack(context, '수정 완료');
       Navigator.pop(context);
     } catch (e) {
-      UiUtils.snack(context, e.toString().replaceFirst('Exception: ', ''));
+      if (!mounted) return;
+      UiUtils.snack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _addImageUrl() async {
+    final scope = AppScope.of(context);
+    final urlCtrl = TextEditingController();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Add Image URL'),
+        content: TextField(
+          controller: urlCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Image URL',
+            hintText: 'https://...',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Add')),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    final url = urlCtrl.text.trim();
+    if (url.isEmpty) {
+      UiUtils.snack(context, 'URL is required.');
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      await scope.jobs.addImage(widget.job.id, url);
+      if (!mounted) return;
+      UiUtils.snack(context, 'Image added.');
+    } catch (e) {
+      if (!mounted) return;
+      UiUtils.snack(context, e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -76,29 +131,52 @@ class _JobEditPageState extends State<JobEditPage> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: '공고 수정',
+      title: 'Edit Job Post',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(controller: _title, decoration: const InputDecoration(labelText: '제목')),
-          const SizedBox(height: 10),
-          TextField(controller: _shop, decoration: const InputDecoration(labelText: '가게명')),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _wage,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: '시급'),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _content,
-            maxLines: 4,
-            decoration: const InputDecoration(labelText: '내용'),
+          Labeled(label: 'Title', child: TextField(controller: _titleCtrl)),
+          const SizedBox(height: 12),
+          Labeled(label: 'Region', child: TextField(controller: _regionCtrl)),
+          const SizedBox(height: 12),
+          Labeled(
+            label: 'Wage (optional)',
+            child: TextField(controller: _wageCtrl, keyboardType: TextInputType.number),
           ),
           const SizedBox(height: 12),
-          PrimaryButton(
-            text: _loading ? '처리중...' : '저장',
-            onPressed: _loading ? null : _submit,
+          Labeled(
+            label: 'Status',
+            child: DropdownButton<JobStatus>(
+              value: _status,
+              items: const [
+                DropdownMenuItem(value: JobStatus.OPEN, child: Text('OPEN')),
+                DropdownMenuItem(value: JobStatus.CLOSED, child: Text('CLOSED')),
+              ],
+              onChanged: _loading ? null : (v) => setState(() => _status = v ?? JobStatus.OPEN),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Labeled(
+            label: 'Description',
+            child: TextField(controller: _descCtrl, maxLines: 4),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: PrimaryButton(
+                  text: _loading ? 'Saving...' : 'Save',
+                  onPressed: _loading ? null : _save,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: PrimaryButton(
+                  text: _loading ? '...' : 'Add Image URL',
+                  onPressed: _loading ? null : _addImageUrl,
+                ),
+              ),
+            ],
           ),
         ],
       ),

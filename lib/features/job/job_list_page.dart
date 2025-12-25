@@ -4,10 +4,8 @@ import '../../core/common/utils.dart';
 import '../../core/common/widgets.dart';
 import '../../main.dart';
 import '../auth/auth_model.dart';
-import '../chat/chat_list_page.dart';
-import '../profile/profile_page.dart';
-import 'job_register_page.dart';
 import 'job_detail_page.dart';
+import 'job_register_page.dart';
 import 'job_model.dart';
 
 class JobListPage extends StatefulWidget {
@@ -18,115 +16,137 @@ class JobListPage extends StatefulWidget {
 }
 
 class _JobListPageState extends State<JobListPage> {
-  bool _loaded = false;
+  bool _loading = false;
+
+  final _regionCtrl = TextEditingController();
+  JobStatus? _status; // null = all
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_loaded) return;
-    _loaded = true;
-    AppScope.of(context).jobs.refresh();
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    _regionCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    final scope = AppScope.of(context);
+
+    setState(() => _loading = true);
+    try {
+      await scope.jobs.refresh(
+        region: _regionCtrl.text.trim().isEmpty ? null : _regionCtrl.text.trim(),
+        status: _status,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      UiUtils.snack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = AppScope.of(context);
-    final me = state.auth.me;
+    final scope = AppScope.of(context);
+    final me = scope.auth.me;
+    final items = scope.jobs.items.where((e) => !e.isDeleted).toList();
 
-    if (me == null) {
-      return const AppScaffold(
-        title: '구인 게시판',
-        body: Center(child: Text('로그인이 필요합니다.')),
-      );
-    }
-
-    final isEmployer = me.role == UserRole.employer;
+    final canCreate = me != null && me.role == UserRole.COMPANY;
 
     return AppScaffold(
-      title: '구인 게시판',
-      actions: [
-        IconButton(
-          onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatListPage()));
-          },
-          icon: const Icon(Icons.chat_bubble_outline),
-          tooltip: '채팅',
-        ),
-        IconButton(
-          onPressed: () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
-          },
-          icon: const Icon(Icons.person_outline),
-          tooltip: '프로필',
-        ),
-      ],
-      fab: isEmployer
+      title: 'Jobs',
+      floatingActionButton: canCreate
           ? FloatingActionButton(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        onPressed: () async {
+        onPressed: _loading
+            ? null
+            : () async {
           await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const JobRegisterPage()),
           );
-          if (!context.mounted) return;
-          state.jobs.refresh();
+          if (!mounted) return;
+          await _refresh();
         },
         child: const Icon(Icons.add),
       )
           : null,
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LabeledBox(
-            label: '내 정보',
-            child: Text('ID: ${me.username} / ROLE: ${me.role.name}'),
+          // Filters
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _regionCtrl,
+                  decoration: const InputDecoration(
+                    hintText: 'Filter by region (optional)',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              DropdownButton<JobStatus?>(
+                value: _status,
+                items: const [
+                  DropdownMenuItem(value: null, child: Text('ALL')),
+                  DropdownMenuItem(value: JobStatus.OPEN, child: Text('OPEN')),
+                  DropdownMenuItem(value: JobStatus.CLOSED, child: Text('CLOSED')),
+                ],
+                onChanged: (v) => setState(() => _status = v),
+              ),
+              IconButton(
+                onPressed: _loading ? null : _refresh,
+                icon: const Icon(Icons.search),
+                tooltip: 'Search',
+              ),
+            ],
           ),
           const SizedBox(height: 12),
+
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => state.jobs.refresh(),
-              child: ListView.separated(
-                itemCount: state.jobs.items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, idx) {
-                  final JobPost post = state.jobs.items[idx];
-                  return InkWell(
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => JobDetailPage(post: post)),
-                      );
-                      if (!context.mounted) return;
-                      state.jobs.refresh();
-                    },
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(post.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 6),
-                            Text('가게: ${post.shopName}'),
-                            Text('시급: ${post.wage}'),
-                            Text('작성자: ${post.employerId}'),
-                          ],
-                        ),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : (items.isEmpty
+                ? const Center(child: Text('No job posts.'))
+                : ListView.separated(
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const Divider(height: 10),
+              itemBuilder: (context, i) {
+                final p = items[i];
+                return InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => JobDetailPage(jobId: p.id)),
+                    );
+                  },
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            p.title,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 6),
+                          Text('Region: ${p.region}'),
+                          Text('Wage: ${p.wage ?? '-'}'),
+                          Text('Status: ${p.status.name}'),
+                          Text('Company ID: ${p.companyId}'),
+                        ],
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          OutlineButton(
-            text: '로그아웃',
-            onPressed: () {
-              state.auth.logout();
-              UiUtils.snack(context, '로그아웃되었습니다.');
-              Navigator.popUntil(context, (route) => route.isFirst);
-            },
+                  ),
+                );
+              },
+            )),
           ),
         ],
       ),

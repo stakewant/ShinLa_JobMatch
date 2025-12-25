@@ -3,65 +3,60 @@ import 'job_api.dart';
 import 'job_model.dart';
 
 class JobController extends ChangeNotifier {
-  final _api = JobApi();
+  final JobApi _api;
+  JobController(this._api);
 
-  List<JobPost> _items = [];
-  List<JobPost> get items => _items;
+  List<JobPostOut> _items = [];
+  List<JobPostOut> get items => _items;
 
-  Future<void> refresh() async {
-    _items = await _api.list();
+  Future<void> refresh({String? region, JobStatus? status}) async {
+    _items = await _api.list(region: region, status: status);
     notifyListeners();
   }
 
-  Future<void> create(JobPost post) async {
-    // 이 메서드는 직접 쓰기보다 createFromForm 형태를 쓰는 것을 권장
-    _items = [post, ..._items];
-    notifyListeners();
-  }
+  Future<JobPostOut> detail(int id) => _api.detail(id);
 
-  Future<JobPost> createFromForm({
-    required String employerId,
+  Future<JobPostOut> register({
     required String title,
-    required String shopName,
-    required int wage,
-    required String content,
+    required int? wage,
+    required String description,
+    required String region,
+    required JobStatus status,
   }) async {
     final created = await _api.create(
-      employerId: employerId,
       title: title,
-      shopName: shopName,
       wage: wage,
-      content: content,
+      description: description,
+      region: region,
+      status: status,
     );
     await refresh();
     return created;
   }
 
-  Future<JobPost> updateFromForm({
-    required String requesterId,
-    required String id,
-    required String title,
-    required String shopName,
-    required int wage,
-    required String content,
-  }) async {
+  Future<JobPostOut> edit(
+      int id, {
+        required String title,
+        required int? wage,
+        required String description,
+        required String region,
+        required JobStatus status,
+      }) async {
     final updated = await _api.update(
-      requesterId: requesterId,
-      id: id,
+      id,
       title: title,
-      shopName: shopName,
       wage: wage,
-      content: content,
+      description: description,
+      region: region,
+      status: status,
     );
     await refresh();
     return updated;
   }
 
-  Future<void> delete({
-    required String requesterId,
-    required String id,
-  }) async {
-    await _api.delete(requesterId: requesterId, id: id);
+  Future<JobImageOut> addImage(int jobPostId, String imageUrl) async {
+    final img = await _api.addImage(jobPostId, imageUrl);
     await refresh();
+    return img;
   }
 }

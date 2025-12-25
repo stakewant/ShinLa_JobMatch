@@ -3,94 +3,134 @@ import 'package:flutter/material.dart';
 import '../../core/common/utils.dart';
 import '../../core/common/widgets.dart';
 import '../../main.dart';
-import '../job/job_list_page.dart';
 import 'auth_model.dart';
+import 'role_select_page.dart';
 
 class SignupPage extends StatefulWidget {
-  const SignupPage({super.key, required this.role});
-  final UserRole role;
+  const SignupPage({super.key});
 
   @override
   State<SignupPage> createState() => _SignupPageState();
 }
 
 class _SignupPageState extends State<SignupPage> {
-  final _id = TextEditingController();
-  final _pw = TextEditingController();
-  final _pw2 = TextEditingController();
-  bool _loading = false;
+  final _identifierController = TextEditingController(); // email or phone
+  final _passwordController = TextEditingController();
+
+  UserRole? _role;
+  bool _isLoading = false;
 
   @override
   void dispose() {
-    _id.dispose();
-    _pw.dispose();
-    _pw2.dispose();
+    _identifierController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    final state = AppScope.of(context);
-    final username = _id.text.trim();
-    final password = _pw.text.trim();
-    final password2 = _pw2.text.trim();
+  bool _looksLikeEmail(String value) => value.trim().contains('@');
 
-    if (username.isEmpty || password.isEmpty) {
-      UiUtils.snack(context, '아이디/비밀번호를 입력하세요.');
+  Future<void> _pickRole() async {
+    final selected = await Navigator.push<UserRole>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RoleSelectPage(
+          onSelect: (role) => Navigator.pop(context, role),
+        ),
+      ),
+    );
+    if (selected != null) setState(() => _role = selected);
+  }
+
+  Future<void> _onSignup() async {
+    final scope = AppScope.of(context);
+
+    final id = _identifierController.text.trim();
+    final pw = _passwordController.text.trim();
+    final role = _role;
+
+    if (id.isEmpty || pw.isEmpty || role == null) {
+      UiUtils.snack(context, 'Please enter email/phone, password, and role.');
       return;
     }
-    if (password != password2) {
-      UiUtils.snack(context, '비밀번호 확인이 일치하지 않습니다.');
-      return;
-    }
 
-    setState(() => _loading = true);
+    final email = _looksLikeEmail(id) ? id : null;
+    final phone = _looksLikeEmail(id) ? null : id;
+
+    setState(() => _isLoading = true);
     try {
-      await state.auth.signup(username, password, widget.role);
-
-      await state.profile.loadFromAuthApi(state.auth.api, state.auth.me!.userId);
+      // Server behavior: signup returns user, NOT token.
+      // We do: signup -> login -> me inside AuthController.signupThenLogin()
+      await scope.auth.signupThenLogin(
+        email: email,
+        phone: phone,
+        password: pw,
+        role: role,
+      );
 
       if (!mounted) return;
+
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => const JobListPage()),
-            (route) => false,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+            (_) => false,
       );
     } catch (e) {
-      UiUtils.snack(context, e.toString().replaceFirst('Exception: ', ''));
+      if (!mounted) return;
+      UiUtils.snack(context, _prettyError(e));
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  String _prettyError(Object e) {
+    final msg = e.toString();
+    return msg.replaceFirst('Exception: ', '');
   }
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: '회원가입',
+      title: 'Create Account',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LabeledBox(
-            label: '역할',
-            child: Text(widget.role == UserRole.worker ? '구직자' : '구인자'),
+          Labeled(
+            label: 'Email or Phone',
+            child: TextField(
+              controller: _identifierController,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                hintText: 'user@example.com or 01012345678',
+              ),
+            ),
           ),
           const SizedBox(height: 12),
-          TextField(controller: _id, decoration: const InputDecoration(labelText: '아이디')),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _pw,
-            decoration: const InputDecoration(labelText: '비밀번호'),
-            obscureText: true,
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _pw2,
-            decoration: const InputDecoration(labelText: '비밀번호 확인'),
-            obscureText: true,
+          Labeled(
+            label: 'Password',
+            child: TextField(
+              controller: _passwordController,
+              obscureText: true,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _isLoading ? null : _onSignup(),
+              decoration: const InputDecoration(
+                hintText: 'Minimum 6 characters (server policy)',
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           PrimaryButton(
-            text: _loading ? '처리중...' : '가입 완료',
-            onPressed: _loading ? null : _submit,
+            text: _role == null ? 'Select Role' : 'Role: ${_role!.name}',
+            onPressed: _isLoading ? null : _pickRole,
+          ),
+          const SizedBox(height: 16),
+          PrimaryButton(
+            text: _isLoading ? 'Creating account...' : 'Sign Up',
+            onPressed: _isLoading ? null : _onSignup,
+          ),
+          const SizedBox(height: 10),
+          TextButton(
+            onPressed: _isLoading ? null : () => Navigator.pop(context),
+            child: const Text('Back to Sign In'),
           ),
         ],
       ),

@@ -4,100 +4,178 @@ import '../../core/common/utils.dart';
 import '../../core/common/widgets.dart';
 import '../../main.dart';
 import '../auth/auth_model.dart';
+import '../chat/chat_list_page.dart';
 import '../chat/chat_page.dart';
 import 'job_edit_page.dart';
 import 'job_model.dart';
 
-class JobDetailPage extends StatelessWidget {
-  const JobDetailPage({super.key, required this.post});
-  final JobPost post;
+class JobDetailPage extends StatefulWidget {
+  final int jobId;
+  const JobDetailPage({super.key, required this.jobId});
+
+  @override
+  State<JobDetailPage> createState() => _JobDetailPageState();
+}
+
+class _JobDetailPageState extends State<JobDetailPage> {
+  bool _loading = false;
+  JobPostOut? _job;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final scope = AppScope.of(context);
+    setState(() => _loading = true);
+    try {
+      _job = await scope.jobs.detail(widget.jobId);
+    } catch (e) {
+      if (!mounted) return;
+      UiUtils.snack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _goEdit(JobPostOut job) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => JobEditPage(job: job)),
+    );
+    if (!mounted) return;
+    await _load();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final state = AppScope.of(context);
-    final me = state.auth.me;
-    if (me == null) {
-      return const AppScaffold(title: '상세', body: Center(child: Text('로그인이 필요합니다.')));
-    }
+    final scope = AppScope.of(context);
+    final me = scope.auth.me;
 
-    final isMyPost = post.employerId == me.userId;
-    final isEmployer = me.role == UserRole.employer;
+    final job = _job;
+    final isMine = job != null && me != null && me.role == UserRole.COMPANY && me.id == job.companyId;
 
     return AppScaffold(
-      title: '공고 상세',
-      actions: [
-        if (isMyPost && isEmployer)
-          IconButton(
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => JobEditPage(post: post)),
-              );
-              if (!context.mounted) return;
-              Navigator.pop(context); // 최신 데이터 반영 위해 상세를 닫고 목록에서 refresh 유도
-            },
-            icon: const Icon(Icons.edit_outlined),
-          ),
-      ],
-      body: Column(
+      title: 'Job Detail',
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : (job == null
+          ? const Center(child: Text('Job not found.'))
+          : Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LabeledBox(
-            label: '제목',
-            child: Text(post.title),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(job.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  Text('Region: ${job.region}'),
+                  Text('Wage: ${job.wage ?? '-'}'),
+                  Text('Status: ${job.status.name}'),
+                  const SizedBox(height: 10),
+                  const Text('Description', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  Text(job.description.isEmpty ? '-' : job.description),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 10),
-          LabeledBox(
-            label: '가게 / 시급',
-            child: Text('${post.shopName} / ${post.wage}'),
-          ),
-          const SizedBox(height: 10),
-          LabeledBox(
-            label: '내용',
-            child: Text(post.content.isEmpty ? '(내용 없음)' : post.content),
-          ),
-          const SizedBox(height: 10),
-          LabeledBox(
-            label: '작성자',
-            child: Text(post.employerId),
-          ),
-          const Spacer(),
-          if (isMyPost && isEmployer)
+          const SizedBox(height: 12),
+
+          if (job.images.isNotEmpty) ...[
+            const Text('Images', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView.separated(
+                itemCount: job.images.length,
+                separatorBuilder: (_, __) => const Divider(height: 10),
+                itemBuilder: (_, i) {
+                  final img = job.images[i];
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(img.imageUrl),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ] else
+            const Spacer(),
+
+          const SizedBox(height: 12),
+
+          // Company owner can edit
+          if (isMine)
             PrimaryButton(
-              text: '삭제',
+              text: 'Edit Post',
+              onPressed: () => _goEdit(job),
+            ),
+
+          const SizedBox(height: 10),
+
+          // Chat: server rule => only COMPANY can create rooms.
+          // So:
+          // - COMPANY sees "Start Chat" button (requires studentId)
+          // - STUDENT can only navigate to chat list
+          if (me != null && me.role == UserRole.COMPANY)
+            PrimaryButton(
+              text: 'Start Chat (Create Room)',
               onPressed: () async {
+                final studentIdCtrl = TextEditingController();
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Create Chat Room'),
+                    content: TextField(
+                      controller: studentIdCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Student ID',
+                        hintText: 'e.g. 5',
+                      ),
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Create')),
+                    ],
+                  ),
+                );
+                if (ok != true) return;
+
+                final studentId = UiUtils.tryParseInt(studentIdCtrl.text);
+                if (studentId == null) {
+                  UiUtils.snack(context, 'Invalid Student ID');
+                  return;
+                }
+
                 try {
-                  await state.jobs.delete(requesterId: me.userId, id: post.id);
+                  final room = await scope.chat.createRoom(jobPostId: job.id, studentId: studentId);
                   if (!context.mounted) return;
-                  UiUtils.snack(context, '삭제 완료');
-                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => ChatPage(roomId: room.id)),
+                  );
                 } catch (e) {
-                  UiUtils.snack(context, e.toString().replaceFirst('Exception: ', ''));
+                  if (!context.mounted) return;
+                  UiUtils.snack(context, e.toString());
                 }
               },
             )
           else
             PrimaryButton(
-              text: '채팅으로 지원하기',
-              onPressed: () async {
-                try {
-                  final roomId = await state.chats.getOrCreateRoom(
-                    postId: post.id,
-                    employerId: post.employerId,
-                    workerId: me.userId,
-                  );
-                  if (!context.mounted) return;
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => ChatPage(roomId: roomId)),
-                  );
-                } catch (e) {
-                  UiUtils.snack(context, e.toString().replaceFirst('Exception: ', ''));
-                }
+              text: 'Go to Chats',
+              onPressed: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatListPage()));
               },
             ),
         ],
-      ),
+      )),
     );
   }
 }

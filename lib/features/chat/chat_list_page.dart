@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/common/utils.dart';
 import '../../core/common/widgets.dart';
 import '../../main.dart';
+import '../auth/auth_model.dart';
 import 'chat_page.dart';
 
 class ChatListPage extends StatefulWidget {
@@ -12,59 +14,160 @@ class ChatListPage extends StatefulWidget {
 }
 
 class _ChatListPageState extends State<ChatListPage> {
-  bool _loaded = false;
+  bool _loading = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_loaded) return;
-    _loaded = true;
+  void initState() {
+    super.initState();
+    _refresh();
+  }
 
-    final state = AppScope.of(context);
-    final me = state.auth.me;
-    if (me != null) {
-      state.chats.refreshRooms(me.userId);
+  Future<void> _refresh() async {
+    final scope = AppScope.of(context);
+    setState(() => _loading = true);
+    try {
+      await scope.chat.refreshRooms();
+    } catch (e) {
+      if (!mounted) return;
+      UiUtils.snack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _showCreateRoomDialog() async {
+    final scope = AppScope.of(context);
+    final me = scope.auth.me;
+    if (me == null) return;
+
+    if (me.role != UserRole.COMPANY) {
+      UiUtils.snack(context, 'Only COMPANY can create chat rooms on the current server.');
+      return;
+    }
+
+    final jobPostIdCtrl = TextEditingController();
+    final studentIdCtrl = TextEditingController();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Create Chat Room'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: jobPostIdCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Job Post ID'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: studentIdCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Student ID'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Create')),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    final jobPostId = UiUtils.tryParseInt(jobPostIdCtrl.text);
+    final studentId = UiUtils.tryParseInt(studentIdCtrl.text);
+
+    if (jobPostId == null || studentId == null) {
+      UiUtils.snack(context, 'Please enter valid numeric IDs.');
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      final room = await scope.chat.createRoom(jobPostId: jobPostId, studentId: studentId);
+      if (!mounted) return;
+
+      Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(roomId: room.id)));
+    } catch (e) {
+      if (!mounted) return;
+      UiUtils.snack(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = AppScope.of(context);
-    final me = state.auth.me;
+    final scope = AppScope.of(context);
+    final rooms = scope.chat.rooms;
+    final me = scope.auth.me;
 
     return AppScaffold(
-      title: '채팅 목록',
-      body: me == null
-          ? const Center(child: Text('로그인이 필요합니다.'))
-          : ListView.separated(
-        itemCount: state.chats.rooms.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
-        itemBuilder: (context, idx) {
-          final r = state.chats.rooms[idx];
-          final peer = r.employerId == me.userId ? r.workerId : r.employerId;
-          return InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => ChatPage(roomId: r.roomId)),
-              );
-            },
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('상대: $peer', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 6),
-                    Text('공고ID: ${r.postId}'),
-                    Text('방ID: ${r.roomId}'),
-                  ],
+      title: 'Chats',
+      floatingActionButton: (me?.role == UserRole.COMPANY)
+          ? FloatingActionButton(
+        onPressed: _loading ? null : _showCreateRoomDialog,
+        child: const Icon(Icons.add),
+      )
+          : null,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  me == null ? 'Not signed in' : 'Signed in as ${me.role.name} (id=${me.id})',
+                  style: const TextStyle(fontSize: 12),
                 ),
               ),
-            ),
-          );
-        },
+              IconButton(
+                onPressed: _loading ? null : _refresh,
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : (rooms.isEmpty
+                ? const Center(child: Text('No chat rooms.'))
+                : ListView.separated(
+              itemCount: rooms.length,
+              separatorBuilder: (_, __) => const Divider(height: 10),
+              itemBuilder: (context, i) {
+                final r = rooms[i];
+                return InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => ChatPage(roomId: r.id)),
+                    );
+                  },
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Room #${r.id}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 6),
+                          Text('Job Post ID: ${r.jobPostId}'),
+                          Text('Company ID: ${r.companyId}'),
+                          Text('Student ID: ${r.studentId}'),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            )),
+          ),
+        ],
       ),
     );
   }

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/common/utils.dart';
 import '../../core/common/widgets.dart';
 import '../../main.dart';
+import '../auth/auth_model.dart';
+import 'job_model.dart';
 
 class JobRegisterPage extends StatefulWidget {
   const JobRegisterPage({super.key});
@@ -12,56 +14,56 @@ class JobRegisterPage extends StatefulWidget {
 }
 
 class _JobRegisterPageState extends State<JobRegisterPage> {
-  final _title = TextEditingController();
-  final _shop = TextEditingController();
-  final _wage = TextEditingController();
-  final _content = TextEditingController();
+  final _titleCtrl = TextEditingController();
+  final _wageCtrl = TextEditingController();
+  final _regionCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
 
+  JobStatus _status = JobStatus.OPEN;
   bool _loading = false;
 
   @override
   void dispose() {
-    _title.dispose();
-    _shop.dispose();
-    _wage.dispose();
-    _content.dispose();
+    _titleCtrl.dispose();
+    _wageCtrl.dispose();
+    _regionCtrl.dispose();
+    _descCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    final state = AppScope.of(context);
-    final me = state.auth.me;
-    if (me == null) {
-      UiUtils.snack(context, '로그인이 필요합니다.');
+    final scope = AppScope.of(context);
+    final me = scope.auth.me;
+
+    if (me == null || me.role != UserRole.COMPANY) {
+      UiUtils.snack(context, 'Only COMPANY can create job posts.');
       return;
     }
 
-    final title = _title.text.trim();
-    final shop = _shop.text.trim();
-    final wage = UiUtils.tryParseInt(_wage.text);
-    final content = _content.text.trim();
+    final title = _titleCtrl.text.trim();
+    final region = _regionCtrl.text.trim();
+    final desc = _descCtrl.text.trim();
+    final wage = UiUtils.tryParseInt(_wageCtrl.text);
 
-    if (title.isEmpty || shop.isEmpty || wage == null) {
-      UiUtils.snack(context, '제목/가게/시급(숫자)을 확인하세요.');
+    if (title.isEmpty || region.isEmpty) {
+      UiUtils.snack(context, 'Title and region are required.');
       return;
     }
 
     setState(() => _loading = true);
     try {
-      await state.jobs.createFromForm(
-        employerId: me.userId,
+      await scope.jobs.register(
         title: title,
-        shopName: shop,
         wage: wage,
-        content: content,
+        description: desc,
+        region: region,
+        status: _status,
       );
-
       if (!mounted) return;
-      UiUtils.snack(context, '공고 등록 완료');
-      Navigator.pop(context); // 목록으로 복귀
+      Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      UiUtils.snack(context, e.toString().replaceFirst('Exception: ', ''));
+      UiUtils.snack(context, e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -70,34 +72,41 @@ class _JobRegisterPageState extends State<JobRegisterPage> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: '공고 등록',
+      title: 'Register Job Post',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
-            controller: _title,
-            decoration: const InputDecoration(labelText: '제목'),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _shop,
-            decoration: const InputDecoration(labelText: '가게명'),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _wage,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: '시급(숫자)'),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _content,
-            maxLines: 4,
-            decoration: const InputDecoration(labelText: '내용(선택)'),
+          Labeled(label: 'Title', child: TextField(controller: _titleCtrl)),
+          const SizedBox(height: 12),
+          Labeled(label: 'Region', child: TextField(controller: _regionCtrl)),
+          const SizedBox(height: 12),
+          Labeled(
+            label: 'Wage (optional)',
+            child: TextField(controller: _wageCtrl, keyboardType: TextInputType.number),
           ),
           const SizedBox(height: 12),
+          Labeled(
+            label: 'Status',
+            child: DropdownButton<JobStatus>(
+              value: _status,
+              items: const [
+                DropdownMenuItem(value: JobStatus.OPEN, child: Text('OPEN')),
+                DropdownMenuItem(value: JobStatus.CLOSED, child: Text('CLOSED')),
+              ],
+              onChanged: _loading ? null : (v) => setState(() => _status = v ?? JobStatus.OPEN),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Labeled(
+            label: 'Description',
+            child: TextField(
+              controller: _descCtrl,
+              maxLines: 4,
+            ),
+          ),
+          const SizedBox(height: 16),
           PrimaryButton(
-            text: _loading ? '처리중...' : '등록',
+            text: _loading ? 'Submitting...' : 'Submit',
             onPressed: _loading ? null : _submit,
           ),
         ],

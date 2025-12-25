@@ -1,24 +1,33 @@
-import '../auth/auth_model.dart';
+class StudentProfile {
+  final int userId;
+  final String name;
+  final String? school;
+  final String? major;
+  final List<String> skills;
+  final String? availableTime;
 
-class UserProfile {
-  UserProfile({
+  StudentProfile({
     required this.userId,
     required this.name,
-    required this.role,
-    required this.bio,
+    required this.school,
+    required this.major,
+    required this.skills,
+    required this.availableTime,
   });
 
-  final String userId;
-  final String name;
-  final UserRole role;
-  final String bio;
+  factory StudentProfile.fromJson(Map<String, dynamic> j) {
+    final rawSkills = j['skills'];
+    final skills = (rawSkills is List)
+        ? rawSkills.map((e) => e.toString()).toList()
+        : <String>[];
 
-  UserProfile copyWith({String? name, String? bio}) {
-    return UserProfile(
-      userId: userId,
-      name: name ?? this.name,
-      role: role,
-      bio: bio ?? this.bio,
+    return StudentProfile(
+      userId: (j['user_id'] as num).toInt(),
+      name: (j['name'] as String?) ?? '',
+      school: j['school'] as String?,
+      major: j['major'] as String?,
+      skills: skills,
+      availableTime: j['available_time'] as String?,
     );
   }
 }
