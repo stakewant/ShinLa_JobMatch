@@ -19,7 +19,10 @@ class _ChatListPageState extends State<ChatListPage> {
   @override
   void initState() {
     super.initState();
-    _refresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _refresh();
+    });
   }
 
   Future<void> _refresh() async {

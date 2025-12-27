@@ -24,7 +24,13 @@ class _JobListPageState extends State<JobListPage> {
   @override
   void initState() {
     super.initState();
-    _refresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted)
+      {
+        return;
+      }
+      _refresh();
+    });
   }
 
   @override

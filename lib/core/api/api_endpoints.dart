@@ -1,5 +1,5 @@
 class ApiEndpoints {
-  static const String baseUrl = 'http://10.0.2.2:8000/api'; // 실서버 연결 시 변경
+  static const String baseUrl = 'http://52.79.241.167:8000/api'; // 실서버 연결 시 변경
 
   // Auth
   static const String login = '/auth/login';
@@ -17,7 +17,7 @@ class ApiEndpoints {
   static const String jobPosts = '/job-posts';
 
   // Chat
-  static const String chatRooms = '/chats/rooms';
+  static const String chatRooms = '/chat/rooms';
   static String chatRoomDetail(String id) => '/chats/rooms/$id';
 
   // Profile
