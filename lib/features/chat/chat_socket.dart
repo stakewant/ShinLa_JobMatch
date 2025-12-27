@@ -28,28 +28,38 @@ class ChatSocket {
   Future<void> connect() async {
     if (_connected) return;
 
-    // 서버: /ws/chat/{roomId}?token=...
+    // 반드시 /api 포함된 baseUrl 사용
+    // 최종 형태: ws://host:8000/api/ws/chat/{roomId}?token=...
     final url =
         '$wsBaseUrl/ws/chat/$roomId?token=${Uri.encodeComponent(accessToken)}';
 
-    _channel = WebSocketChannel.connect(Uri.parse(url));
-    _connected = true;
+    try {
+      _channel = WebSocketChannel.connect(Uri.parse(url));
 
-    _subscription = _channel!.stream.listen(
-          (event) {
-        // FastAPI send_json -> 문자열 JSON으로 들어오는 것이 일반적
-        final decoded = jsonDecode(event as String);
-        if (decoded is Map<String, dynamic>) {
-          onMessage(decoded);
-        }
-      },
-      onError: (_) {
-        _connected = false;
-      },
-      onDone: () {
-        _connected = false;
-      },
-    );
+      _subscription = _channel!.stream.listen(
+            (event) {
+          final decoded = jsonDecode(event as String);
+          if (decoded is Map<String, dynamic>) {
+            onMessage(decoded);
+          }
+        },
+        onError: (error) {
+          _connected = false;
+          print('[WS ERROR] $error');
+        },
+        onDone: () {
+          _connected = false;
+          print('[WS CLOSED]');
+        },
+      );
+
+      //  스트림 리스너 붙은 뒤에 connected 처리
+      _connected = true;
+      print('[WS CONNECTED] $url');
+    } catch (e) {
+      _connected = false;
+      print('[WS CONNECT FAIL] $e');
+    }
   }
 
   void send(String content) {
