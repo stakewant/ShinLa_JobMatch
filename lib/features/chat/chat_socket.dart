@@ -9,7 +9,9 @@ class ChatSocket {
   WebSocketChannel? _channel;
   StreamSubscription? _subscription;
 
-  final String wsBaseUrl; // 예: ws://host:8000  또는 wss://host
+  /// 반드시 ws:// 또는 wss:// + /api 포함
+  /// 예: ws://52.79.241.167:8000/api
+  final String wsBaseUrl;
   final String accessToken;
   final int roomId;
   final OnMessage onMessage;
@@ -28,19 +30,36 @@ class ChatSocket {
   Future<void> connect() async {
     if (_connected) return;
 
-    // 반드시 /api 포함된 baseUrl 사용
-    // 최종 형태: ws://host:8000/api/ws/chat/{roomId}?token=...
     final url =
-        '$wsBaseUrl/ws/chat/$roomId?token=${Uri.encodeComponent(accessToken)}';
+        '$wsBaseUrl/ws/chat/$roomId'
+        '?token=${Uri.encodeComponent(accessToken)}';
 
     try {
+      // 혹시 남아있는 연결 정리
+      await disconnect();
+
+      print('[WS CONNECT TRY] $url');
+
       _channel = WebSocketChannel.connect(Uri.parse(url));
 
       _subscription = _channel!.stream.listen(
             (event) {
-          final decoded = jsonDecode(event as String);
-          if (decoded is Map<String, dynamic>) {
-            onMessage(decoded);
+          try {
+            dynamic decoded;
+
+            if (event is String) {
+              decoded = jsonDecode(event);
+            } else if (event is List<int>) {
+              // 🔥 Android/iOS binary frame 대응
+              final text = utf8.decode(event);
+              decoded = jsonDecode(text);
+            }
+
+            if (decoded is Map<String, dynamic>) {
+              onMessage(decoded);
+            }
+          } catch (e) {
+            print('[WS PARSE ERROR] $e');
           }
         },
         onError: (error) {
@@ -51,11 +70,11 @@ class ChatSocket {
           _connected = false;
           print('[WS CLOSED]');
         },
+        cancelOnError: true,
       );
 
-      //  스트림 리스너 붙은 뒤에 connected 처리
       _connected = true;
-      print('[WS CONNECTED] $url');
+      print('[WS CONNECTED]');
     } catch (e) {
       _connected = false;
       print('[WS CONNECT FAIL] $e');
@@ -65,13 +84,17 @@ class ChatSocket {
   void send(String content) {
     if (!_connected || _channel == null) return;
 
-    // 서버가 receive_json() 후 data["content"]를 읽음
-    _channel!.sink.add(jsonEncode({"content": content}));
+    _channel!.sink.add(
+      jsonEncode({"content": content}),
+    );
   }
 
   Future<void> disconnect() async {
-    await _subscription?.cancel();
-    await _channel?.sink.close();
+    try {
+      await _subscription?.cancel();
+      await _channel?.sink.close();
+    } catch (_) {}
+
     _subscription = null;
     _channel = null;
     _connected = false;

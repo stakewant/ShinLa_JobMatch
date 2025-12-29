@@ -24,7 +24,6 @@ class _JobDetailPageState extends State<JobDetailPage> {
   @override
   void initState() {
     super.initState();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _load();
@@ -57,9 +56,12 @@ class _JobDetailPageState extends State<JobDetailPage> {
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
     final me = scope.auth.me;
-
     final job = _job;
-    final isMine = job != null && me != null && me.role == UserRole.COMPANY && me.id == job.companyId;
+
+    final isMine = job != null &&
+        me != null &&
+        me.role == UserRole.COMPANY &&
+        me.id == job.companyId;
 
     return AppScaffold(
       title: 'Job Detail',
@@ -76,33 +78,52 @@ class _JobDetailPageState extends State<JobDetailPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(job.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  Text(
+                    job.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Text('Region: ${job.region}'),
                   Text('Wage: ${job.wage ?? '-'}'),
                   Text('Status: ${job.status.name}'),
                   const SizedBox(height: 10),
-                  const Text('Description', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Description',
+                    style:
+                    TextStyle(fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 6),
-                  Text(job.description.isEmpty ? '-' : job.description),
+                  Text(job.description.isEmpty
+                      ? '-'
+                      : job.description),
                 ],
               ),
             ),
           ),
+
           const SizedBox(height: 12),
 
           if (job.images.isNotEmpty) ...[
-            const Text('Images', style: TextStyle(fontWeight: FontWeight.w700)),
+            const Text(
+              'Images',
+              style:
+              TextStyle(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 8),
             Expanded(
               child: ListView.separated(
                 itemCount: job.images.length,
-                separatorBuilder: (_, __) => const Divider(height: 10),
+                separatorBuilder: (_, __) =>
+                const Divider(height: 10),
                 itemBuilder: (_, i) {
                   final img = job.images[i];
                   return Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(12),
+                      padding:
+                      const EdgeInsets.all(12),
                       child: Text(img.imageUrl),
                     ),
                   );
@@ -114,7 +135,6 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
           const SizedBox(height: 12),
 
-          // Company owner can edit
           if (isMine)
             PrimaryButton(
               text: 'Edit Post',
@@ -123,51 +143,80 @@ class _JobDetailPageState extends State<JobDetailPage> {
 
           const SizedBox(height: 10),
 
-          // Chat: server rule => only COMPANY can create rooms.
-          // So:
-          // - COMPANY sees "Start Chat" button (requires studentId)
-          // - STUDENT can only navigate to chat list
+          /// =========================
+          /// 채팅 버튼
+          /// =========================
           if (me != null && me.role == UserRole.COMPANY)
             PrimaryButton(
-              text: 'Start Chat (Create Room)',
+              text: 'Start Chat',
               onPressed: () async {
-                final studentIdCtrl = TextEditingController();
+                final studentIdCtrl =
+                TextEditingController();
+
                 final ok = await showDialog<bool>(
                   context: context,
                   builder: (_) => AlertDialog(
-                    title: const Text('Create Chat Room'),
+                    title: const Text(
+                        'Create Chat Room'),
                     content: TextField(
                       controller: studentIdCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
+                      keyboardType:
+                      TextInputType.number,
+                      decoration:
+                      const InputDecoration(
                         labelText: 'Student ID',
-                        hintText: 'e.g. 5',
                       ),
                     ),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Create')),
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pop(
+                                context, false),
+                        child:
+                        const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.pop(
+                                context, true),
+                        child:
+                        const Text('Create'),
+                      ),
                     ],
                   ),
                 );
+
                 if (ok != true) return;
 
-                final studentId = UiUtils.tryParseInt(studentIdCtrl.text);
+                final studentId =
+                UiUtils.tryParseInt(
+                    studentIdCtrl.text);
                 if (studentId == null) {
-                  UiUtils.snack(context, 'Invalid Student ID');
+                  UiUtils.snack(context,
+                      'Invalid Student ID');
                   return;
                 }
 
                 try {
-                  final room = await scope.chat.createRoom(jobPostId: job.id, studentId: studentId);
+                  final room =
+                  await scope.chat.createRoom(
+                    jobPostId: job.id,
+                    studentId: studentId,
+                  );
+
                   if (!context.mounted) return;
+
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => ChatPage(roomId: room.id)),
+                    MaterialPageRoute(
+                      builder: (_) => ChatPage(
+                          roomId: room.id),
+                    ),
                   );
                 } catch (e) {
                   if (!context.mounted) return;
-                  UiUtils.snack(context, e.toString());
+                  UiUtils.snack(
+                      context, e.toString());
                 }
               },
             )
@@ -175,7 +224,13 @@ class _JobDetailPageState extends State<JobDetailPage> {
             PrimaryButton(
               text: 'Go to Chats',
               onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatListPage()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                    const ChatListPage(),
+                  ),
+                );
               },
             ),
         ],

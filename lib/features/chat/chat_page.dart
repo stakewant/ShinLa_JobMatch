@@ -14,8 +14,6 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> {
   final _msgController = TextEditingController();
-
-  bool _loading = false;
   bool _wsReady = false;
 
   @override
@@ -23,11 +21,6 @@ class _ChatPageState extends State<ChatPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-
-      // 1) 히스토리 1회 로드
-      await _loadHistory();
-
-      // 2) WS 연결
       await _connectWs();
     });
   }
@@ -40,24 +33,10 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
-  Future<void> _loadHistory() async {
-    final scope = AppScope.of(context);
-    setState(() => _loading = true);
-    try {
-      await scope.chat.refreshMessages(widget.roomId);
-      await scope.chat.read(widget.roomId);
-    } catch (e) {
-      if (!mounted) return;
-      UiUtils.snack(context, e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
   Future<void> _connectWs() async {
     final scope = AppScope.of(context);
+    final token = scope.auth.token;
 
-    final token = scope.auth.token; // ✅ AuthController에 있는 실제 getter
     if (token == null || token.isEmpty) {
       UiUtils.snack(context, 'No access token');
       return;
@@ -78,17 +57,15 @@ class _ChatPageState extends State<ChatPage> {
 
   void _send() {
     final scope = AppScope.of(context);
-
     final text = _msgController.text.trim();
-    if (text.isEmpty) return;
 
+    if (text.isEmpty) return;
     if (!_wsReady) {
       UiUtils.snack(context, 'WebSocket not connected');
       return;
     }
 
-    // WS로 보내면 서버가 DB 저장 + broadcast(나에게도) 함
-    scope.chat.sendWs(widget.roomId, text);
+    scope.chat.sendMessage(widget.roomId, text);
     _msgController.clear();
   }
 
@@ -107,22 +84,22 @@ class _ChatPageState extends State<ChatPage> {
             children: [
               Expanded(
                 child: Text(
-                  me == null ? 'Not signed in' : 'Me: ${me.role.name} (id=${me.id})',
+                  me == null
+                      ? 'Not signed in'
+                      : 'Me: ${me.role.name} (id=${me.id})',
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
-              Text(_wsReady ? 'WS: ON' : 'WS: OFF', style: const TextStyle(fontSize: 12)),
-              IconButton(
-                // 폴백/디버깅용 refresh 유지
-                onPressed: _loading ? null : _loadHistory,
-                icon: const Icon(Icons.refresh),
+              Text(
+                _wsReady ? 'WS: ON' : 'WS: OFF',
+                style: const TextStyle(fontSize: 12),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: _loading && messages.isEmpty
-                ? const Center(child: CircularProgressIndicator())
+            child: messages.isEmpty
+                ? const Center(child: Text('No messages yet.'))
                 : ListView.builder(
               itemCount: messages.length,
               itemBuilder: (context, i) {
@@ -130,21 +107,29 @@ class _ChatPageState extends State<ChatPage> {
                 final isMine = me != null && m.senderId == me.id;
 
                 return Align(
-                  alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment:
+                  isMine ? Alignment.centerRight : Alignment.centerLeft,
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 280),
+                    constraints:
+                    const BoxConstraints(maxWidth: 280),
                     child: Card(
                       child: Padding(
                         padding: const EdgeInsets.all(10),
                         child: Column(
-                          crossAxisAlignment:
-                          isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                          crossAxisAlignment: isMine
+                              ? CrossAxisAlignment.end
+                              : CrossAxisAlignment.start,
                           children: [
-                            Text('Sender: ${m.senderId}', style: const TextStyle(fontSize: 11)),
+                            Text(
+                              'Sender: ${m.senderId}',
+                              style:
+                              const TextStyle(fontSize: 11),
+                            ),
                             if (m.createdAt != null)
                               Text(
                                 m.createdAt!.toIso8601String(),
-                                style: const TextStyle(fontSize: 10),
+                                style:
+                                const TextStyle(fontSize: 10),
                               ),
                             const SizedBox(height: 4),
                             Text(m.content),
@@ -165,7 +150,8 @@ class _ChatPageState extends State<ChatPage> {
                   controller: _msgController,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _send(),
-                  decoration: const InputDecoration(hintText: 'Type a message...'),
+                  decoration:
+                  const InputDecoration(hintText: 'Type a message...'),
                 ),
               ),
               const SizedBox(width: 10),

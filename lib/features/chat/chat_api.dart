@@ -6,6 +6,15 @@ class ChatApi {
   final DioClient _client;
   ChatApi(this._client);
 
+  /// =========================
+  /// 채팅방 생성
+  /// POST /api/chat/rooms
+  /// BODY:
+  /// {
+  ///   "job_post_id": number,
+  ///   "student_id": number
+  /// }
+  /// =========================
   Future<ChatRoomOut> createRoom({
     required int jobPostId,
     required int studentId,
@@ -17,9 +26,14 @@ class ChatApi {
         'student_id': studentId,
       },
     );
+
     return ChatRoomOut.fromJson(res.data as Map<String, dynamic>);
   }
 
+  /// =========================
+  /// 내 채팅방 목록
+  /// GET /api/chat/rooms
+  /// =========================
   Future<List<ChatRoomOut>> listRooms() async {
     final res = await _client.dio.get(ApiEndpoints.chatRooms);
     final data = res.data;
@@ -32,28 +46,10 @@ class ChatApi {
     throw Exception('Unexpected response: expected List');
   }
 
-  Future<List<ChatMessageOut>> listMessages(int roomId) async {
-    final res = await _client.dio.get('${ApiEndpoints.chatRooms}/$roomId/messages');
-    final data = res.data;
-
-    if (data is List) {
-      return data
-          .map((e) => ChatMessageOut.fromJson(e as Map<String, dynamic>))
-          .toList();
-    }
-    throw Exception('Unexpected response: expected List');
-  }
-
-  // 실시간 채팅에서는 WS send를 사용 권장(중복 저장/갱신 꼬임 방지)
-  Future<ChatMessageOut> sendMessage(int roomId, String content) async {
-    final res = await _client.dio.post(
-      '${ApiEndpoints.chatRooms}/$roomId/messages',
-      data: {'content': content},
-    );
-    return ChatMessageOut.fromJson(res.data as Map<String, dynamic>);
-  }
-
-  Future<void> markRead(int roomId) async {
-    await _client.dio.put('${ApiEndpoints.chatRooms}/$roomId/read');
-  }
+// ❌ 아래 기능들은 서버에 없음
+// - listMessages
+// - sendMessage
+// - markRead
+//
+// 메시지 송수신은 WebSocket(ChatSocket)으로만 처리해야 함
 }

@@ -38,13 +38,16 @@ class _ChatListPageState extends State<ChatListPage> {
     }
   }
 
+  /// =========================
+  /// 채팅방 생성 (JobPostId + StudentId)
+  /// =========================
   Future<void> _showCreateRoomDialog() async {
     final scope = AppScope.of(context);
     final me = scope.auth.me;
     if (me == null) return;
 
     if (me.role != UserRole.COMPANY) {
-      UiUtils.snack(context, 'Only COMPANY can create chat rooms on the current server.');
+      UiUtils.snack(context, 'Only COMPANY can create chat rooms.');
       return;
     }
 
@@ -61,19 +64,29 @@ class _ChatListPageState extends State<ChatListPage> {
             TextField(
               controller: jobPostIdCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Job Post ID'),
+              decoration: const InputDecoration(
+                labelText: 'Job Post ID',
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             TextField(
               controller: studentIdCtrl,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Student ID'),
+              decoration: const InputDecoration(
+                labelText: 'Student ID',
+              ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Create')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Create'),
+          ),
         ],
       ),
     );
@@ -90,10 +103,19 @@ class _ChatListPageState extends State<ChatListPage> {
 
     setState(() => _loading = true);
     try {
-      final room = await scope.chat.createRoom(jobPostId: jobPostId, studentId: studentId);
+      final room = await scope.chat.createRoom(
+        jobPostId: jobPostId,
+        studentId: studentId,
+      );
+
       if (!mounted) return;
 
-      Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(roomId: room.id)));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatPage(roomId: room.id),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       UiUtils.snack(context, e.toString());
@@ -123,7 +145,9 @@ class _ChatListPageState extends State<ChatListPage> {
             children: [
               Expanded(
                 child: Text(
-                  me == null ? 'Not signed in' : 'Signed in as ${me.role.name} (id=${me.id})',
+                  me == null
+                      ? 'Not signed in'
+                      : 'Signed in as ${me.role.name} (id=${me.id})',
                   style: const TextStyle(fontSize: 12),
                 ),
               ),
@@ -141,27 +165,41 @@ class _ChatListPageState extends State<ChatListPage> {
                 ? const Center(child: Text('No chat rooms.'))
                 : ListView.separated(
               itemCount: rooms.length,
-              separatorBuilder: (_, __) => const Divider(height: 10),
+              separatorBuilder: (_, __) =>
+              const Divider(height: 10),
               itemBuilder: (context, i) {
                 final r = rooms[i];
                 return InkWell(
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => ChatPage(roomId: r.id)),
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            ChatPage(roomId: r.id),
+                      ),
                     );
                   },
                   child: Card(
                     child: Padding(
-                      padding: const EdgeInsets.all(12),
+                      padding:
+                      const EdgeInsets.all(12),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                        CrossAxisAlignment.start,
                         children: [
-                          Text('Room #${r.id}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                          Text(
+                            'Room #${r.id}',
+                            style: const TextStyle(
+                                fontWeight:
+                                FontWeight.w700),
+                          ),
                           const SizedBox(height: 6),
-                          Text('Job Post ID: ${r.jobPostId}'),
-                          Text('Company ID: ${r.companyId}'),
-                          Text('Student ID: ${r.studentId}'),
+                          Text(
+                              'Job Post ID: ${r.jobPostId}'),
+                          Text(
+                              'Company ID: ${r.companyId}'),
+                          Text(
+                              'Student ID: ${r.studentId}'),
                         ],
                       ),
                     ),
