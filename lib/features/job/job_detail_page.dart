@@ -5,9 +5,11 @@ import '../../core/common/widgets.dart';
 import '../../main.dart';
 import '../auth/auth_model.dart';
 import '../chat/chat_list_page.dart';
-import '../chat/chat_page.dart';
 import 'job_edit_page.dart';
 import 'job_model.dart';
+
+import '../applications/company_requests_page.dart';
+import '../applications/student_requests_page.dart';
 
 class JobDetailPage extends StatefulWidget {
   final int jobId;
@@ -92,38 +94,31 @@ class _JobDetailPageState extends State<JobDetailPage> {
                   const SizedBox(height: 10),
                   const Text(
                     'Description',
-                    style:
-                    TextStyle(fontWeight: FontWeight.w700),
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 6),
-                  Text(job.description.isEmpty
-                      ? '-'
-                      : job.description),
+                  Text(job.description.isEmpty ? '-' : job.description),
                 ],
               ),
             ),
           ),
-
           const SizedBox(height: 12),
 
           if (job.images.isNotEmpty) ...[
             const Text(
               'Images',
-              style:
-              TextStyle(fontWeight: FontWeight.w700),
+              style: TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Expanded(
               child: ListView.separated(
                 itemCount: job.images.length,
-                separatorBuilder: (_, __) =>
-                const Divider(height: 10),
+                separatorBuilder: (_, __) => const Divider(height: 10),
                 itemBuilder: (_, i) {
                   final img = job.images[i];
                   return Card(
                     child: Padding(
-                      padding:
-                      const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(12),
                       child: Text(img.imageUrl),
                     ),
                   );
@@ -144,95 +139,70 @@ class _JobDetailPageState extends State<JobDetailPage> {
           const SizedBox(height: 10),
 
           /// =========================
-          /// 채팅 버튼
+          /// 액션 버튼
           /// =========================
-          if (me != null && me.role == UserRole.COMPANY)
-            PrimaryButton(
-              text: 'Start Chat',
-              onPressed: () async {
-                final studentIdCtrl =
-                TextEditingController();
-
-                final ok = await showDialog<bool>(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text(
-                        'Create Chat Room'),
-                    content: TextField(
-                      controller: studentIdCtrl,
-                      keyboardType:
-                      TextInputType.number,
-                      decoration:
-                      const InputDecoration(
-                        labelText: 'Student ID',
-                      ),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () =>
-                            Navigator.pop(
-                                context, false),
-                        child:
-                        const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () =>
-                            Navigator.pop(
-                                context, true),
-                        child:
-                        const Text('Create'),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (ok != true) return;
-
-                final studentId =
-                UiUtils.tryParseInt(
-                    studentIdCtrl.text);
-                if (studentId == null) {
-                  UiUtils.snack(context,
-                      'Invalid Student ID');
-                  return;
-                }
-
-                try {
-                  final room =
-                  await scope.chat.createRoom(
-                    jobPostId: job.id,
-                    studentId: studentId,
-                  );
-
-                  if (!context.mounted) return;
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChatPage(
-                          roomId: room.id),
-                    ),
-                  );
-                } catch (e) {
-                  if (!context.mounted) return;
-                  UiUtils.snack(
-                      context, e.toString());
-                }
-              },
-            )
-          else
+          if (me == null) ...[
             PrimaryButton(
               text: 'Go to Chats',
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                    const ChatListPage(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const ChatListPage()),
                 );
               },
             ),
+          ] else if (me.role == UserRole.COMPANY) ...[
+            // 회사는 여기서 채팅방 만들지 않음: 요청목록에서 수락 시 생성
+            PrimaryButton(
+              text: 'View Requests',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CompanyRequestsPage()),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            PrimaryButton(
+              text: 'Go to Chats',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ChatListPage()),
+                );
+              },
+            ),
+          ] else ...[
+            // 학생: 공고에 요청 보내기
+            PrimaryButton(
+              text: 'Send Request',
+              onPressed: () async {
+                try {
+                  await scope.applications.sendRequest(
+                    studentId: me.id,
+                    companyId: job.companyId,
+                    jobPostId: job.id,
+                  );
+
+                  if (!context.mounted) return;
+                  UiUtils.snack(context, 'Request sent.');
+                } catch (e) {
+                  if (!context.mounted) return;
+                  UiUtils.snack(context, e.toString());
+                }
+              },
+            ),
+            const SizedBox(height: 10),
+            PrimaryButton(
+              text: 'My Requests',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StudentRequestsPage()),
+                );
+              },
+            ),
+          ]
         ],
       )),
     );

@@ -18,6 +18,11 @@ import 'features/profile/profile_api.dart';
 import 'features/profile/profile_controller.dart';
 import 'features/profile/profile_page.dart';
 
+import 'features/applications/application_api.dart';
+import 'features/applications/application_controller.dart';
+import 'features/applications/company_requests_page.dart';
+import 'features/applications/student_requests_page.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -36,6 +41,7 @@ class _MyAppState extends State<MyApp> {
   late final JobController _jobs;
   late final ChatController _chat;
   late final ProfileController _profile;
+  late final ApplicationController _applications;
 
   bool _ready = false;
 
@@ -49,12 +55,13 @@ class _MyAppState extends State<MyApp> {
     _jobs = JobController(JobApi(_client));
     _chat = ChatController(ChatApi(_client));
     _profile = ProfileController(ProfileApi(_client));
+    _applications = ApplicationController(ApplicationApi(_client));
 
     _boot();
   }
 
   Future<void> _boot() async {
-    await _auth.loadSession(); // token + /users/me
+    await _auth.loadSession();
     setState(() => _ready = true);
   }
 
@@ -71,6 +78,7 @@ class _MyAppState extends State<MyApp> {
       jobs: _jobs,
       chat: _chat,
       profile: _profile,
+      applications: _applications,
       child: MaterialApp(
         title: 'ShinLa JobMatch',
         theme: AppTheme.light(),
@@ -85,6 +93,7 @@ class AppScope extends InheritedWidget {
   final JobController jobs;
   final ChatController chat;
   final ProfileController profile;
+  final ApplicationController applications;
 
   const AppScope({
     super.key,
@@ -92,11 +101,13 @@ class AppScope extends InheritedWidget {
     required this.jobs,
     required this.chat,
     required this.profile,
+    required this.applications,
     required super.child,
   });
 
   static AppScope of(BuildContext context) {
-    final AppScope? result = context.dependOnInheritedWidgetOfExactType<AppScope>();
+    final AppScope? result =
+    context.dependOnInheritedWidgetOfExactType<AppScope>();
     assert(result != null, 'No AppScope found in context');
     return result!;
   }
@@ -106,17 +117,59 @@ class AppScope extends InheritedWidget {
     return auth != oldWidget.auth ||
         jobs != oldWidget.jobs ||
         chat != oldWidget.chat ||
-        profile != oldWidget.profile;
+        profile != oldWidget.profile ||
+        applications != oldWidget.applications;
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  bool _booted = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // 홈 진입 시 1회만: 뱃지 최신화
+    if (_booted) return;
+    _booted = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final scope = AppScope.of(context);
+      final me = scope.auth.me;
+
+      // 채팅 unread는 WS가 없으면 최신화가 어렵지만,
+      // 방 목록은 한번 갱신해두면 list 화면 진입이 부드러움
+      try {
+        await scope.chat.refreshRooms();
+      } catch (_) {}
+
+      // 요청 뱃지 최신화(역할별)
+      if (me != null) {
+        try {
+          if (me.role.name == 'COMPANY') {
+            await scope.applications.refreshIncoming(companyId: me.id);
+          } else {
+            await scope.applications.refreshOutgoing(studentId: me.id);
+          }
+        } catch (_) {}
+      }
+    });
+  }
 
   Future<void> _logout(BuildContext context) async {
     final scope = AppScope.of(context);
     await scope.auth.logout();
     scope.profile.clear();
+    await scope.chat.disposeAllSockets();
+    scope.chat.clearUnreadAll();
 
     if (context.mounted) {
       Navigator.pushAndRemoveUntil(
@@ -132,6 +185,12 @@ class HomePage extends StatelessWidget {
     final scope = AppScope.of(context);
     final me = scope.auth.me;
 
+    final apps = scope.applications;
+    final chat = scope.chat;
+
+    final isCompany = me != null && me.role.name == 'COMPANY';
+    final isStudent = me != null && me.role.name == 'STUDENT';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
@@ -145,59 +204,144 @@ class HomePage extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (me == null)
-              const Text('No user loaded.')
-            else
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(
-                    'Signed in as:\n'
-                        'id: ${me.id}\n'
-                        'role: ${me.role.name}\n'
-                        'email: ${me.email}\n'
-                        'phone: ${me.phone}',
+        child: AnimatedBuilder(
+          animation: Listenable.merge([apps, chat]),
+          builder: (context, _) {
+            final requestBadge = isCompany
+                ? apps.pendingIncomingCount
+                : isStudent
+                ? apps.pendingOutgoingCount
+                : 0;
+
+            final chatBadge = chat.totalUnread;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (me == null)
+                  const Text('No user loaded.')
+                else
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        'Signed in as:\n'
+                            'id: ${me.id}\n'
+                            'role: ${me.role.name}\n'
+                            'email: ${me.email}\n'
+                            'phone: ${me.phone}',
+                      ),
+                    ),
                   ),
+                const SizedBox(height: 16),
+
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const JobListPage()),
+                    );
+                  },
+                  child: const Text('Jobs'),
                 ),
-              ),
-            const SizedBox(height: 16),
+                const SizedBox(height: 10),
 
-            OutlinedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const JobListPage()),
-                );
-              },
-              child: const Text('Jobs'),
-            ),
-            const SizedBox(height: 10),
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChatListPage()),
+                    );
+                  },
+                  child: _BadgeText(text: 'Chats', count: chatBadge),
+                ),
+                const SizedBox(height: 10),
 
-            OutlinedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ChatListPage()),
-                );
-              },
-              child: const Text('Chats'),
-            ),
-            const SizedBox(height: 10),
+                if (isCompany) ...[
+                  OutlinedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CompanyRequestsPage()),
+                      );
+                    },
+                    child: _BadgeText(text: 'Requests (Company)', count: requestBadge),
+                  ),
+                  const SizedBox(height: 10),
+                ] else if (isStudent) ...[
+                  OutlinedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const StudentRequestsPage()),
+                      );
+                    },
+                    child: _BadgeText(text: 'My Requests (Student)', count: requestBadge),
+                  ),
+                  const SizedBox(height: 10),
+                ],
 
-            OutlinedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ProfilePage()),
-                );
-              },
-              child: const Text('Profile'),
-            ),
-          ],
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ProfilePage()),
+                    );
+                  },
+                  child: const Text('Profile'),
+                ),
+              ],
+            );
+          },
         ),
+      ),
+    );
+  }
+}
+
+class _BadgeText extends StatelessWidget {
+  final String text;
+  final int count;
+
+  const _BadgeText({
+    required this.text,
+    required this.count,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        Align(alignment: Alignment.center, child: Text(text)),
+        if (count > 0)
+          Positioned(
+            right: -6,
+            top: -6,
+            child: _Badge(count: count),
+          ),
+      ],
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final int count;
+  const _Badge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count >= 99 ? '99+' : '$count';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.red,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 11),
       ),
     );
   }

@@ -54,4 +54,22 @@ class ApiEndpoints {
   // ws://host:8000/api/ws/chat/{roomId}?token=...
   static String chatWebSocket(String roomId) =>
       '/ws/chat/$roomId';
+
+  /// =========================
+  /// Applications (Requests)
+  /// =========================
+
+  // 학생: 요청 보내기
+  static const String applications = '/applications';
+
+  // 회사: 들어온 요청 목록 (예: /applications/incoming?status=PENDING)
+  static const String applicationsIncoming = '/applications/incoming';
+
+  // 학생: 내가 보낸 요청 목록
+  static const String applicationsOutgoing = '/applications/outgoing';
+
+  // 회사: 수락/거절
+  static String applicationAccept(String id) => '/applications/$id/accept';
+  static String applicationReject(String id) => '/applications/$id/reject';
+
 }

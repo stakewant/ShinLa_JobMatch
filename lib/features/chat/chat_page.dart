@@ -28,6 +28,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void dispose() {
     final scope = AppScope.of(context);
+    scope.chat.leaveRoom(widget.roomId);
     scope.chat.disconnectSocket(widget.roomId);
     _msgController.dispose();
     super.dispose();
@@ -35,7 +36,7 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _connectWs() async {
     final scope = AppScope.of(context);
-    final token = scope.auth.token;
+    final token = scope.auth.token; // 프로젝트에 맞는 토큰 변수명 사용
 
     if (token == null || token.isEmpty) {
       UiUtils.snack(context, 'No access token');
@@ -43,12 +44,20 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     try {
+      // 방 입장: unread 0 처리
+      scope.chat.enterRoom(widget.roomId);
+
       await scope.chat.connectSocket(
         roomId: widget.roomId,
         accessToken: token,
       );
+
       if (!mounted) return;
       setState(() => _wsReady = true);
+
+      // (선택) 첫 진입에 REST로 과거 메시지 불러오기
+      // 서버/정책에 따라 켜세요.
+      // await scope.chat.refreshMessages(widget.roomId);
     } catch (e) {
       if (!mounted) return;
       UiUtils.snack(context, 'WS connect failed: $e');
@@ -73,99 +82,95 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
     final me = scope.auth.me;
-    final messages = scope.chat.messages(widget.roomId);
 
-    return AppScaffold(
-      title: 'Chat Room #${widget.roomId}',
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+    return AnimatedBuilder(
+      animation: scope.chat,
+      builder: (context, _) {
+        final messages = scope.chat.messages(widget.roomId);
+
+        return AppScaffold(
+          title: 'Chat Room #${widget.roomId}',
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Text(
-                  me == null
-                      ? 'Not signed in'
-                      : 'Me: ${me.role.name} (id=${me.id})',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-              Text(
-                _wsReady ? 'WS: ON' : 'WS: OFF',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: messages.isEmpty
-                ? const Center(child: Text('No messages yet.'))
-                : ListView.builder(
-              itemCount: messages.length,
-              itemBuilder: (context, i) {
-                final m = messages[i];
-                final isMine = me != null && m.senderId == me.id;
-
-                return Align(
-                  alignment:
-                  isMine ? Alignment.centerRight : Alignment.centerLeft,
-                  child: ConstrainedBox(
-                    constraints:
-                    const BoxConstraints(maxWidth: 280),
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: isMine
-                              ? CrossAxisAlignment.end
-                              : CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Sender: ${m.senderId}',
-                              style:
-                              const TextStyle(fontSize: 11),
-                            ),
-                            if (m.createdAt != null)
-                              Text(
-                                m.createdAt!.toIso8601String(),
-                                style:
-                                const TextStyle(fontSize: 10),
-                              ),
-                            const SizedBox(height: 4),
-                            Text(m.content),
-                          ],
-                        ),
-                      ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      me == null ? 'Not signed in' : 'Me: ${me.role.name} (id=${me.id})',
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
+                  Text(
+                    _wsReady ? 'WS: ON' : 'WS: OFF',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               Expanded(
-                child: TextField(
-                  controller: _msgController,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _send(),
-                  decoration:
-                  const InputDecoration(hintText: 'Type a message...'),
+                child: messages.isEmpty
+                    ? const Center(child: Text('No messages yet.'))
+                    : ListView.builder(
+                  itemCount: messages.length,
+                  itemBuilder: (context, i) {
+                    final m = messages[i];
+                    final isMine = me != null && m.senderId == me.id;
+
+                    return Align(
+                      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 280),
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Column(
+                              crossAxisAlignment:
+                              isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                              children: [
+                                Text('Sender: ${m.senderId}',
+                                    style: const TextStyle(fontSize: 11)),
+                                if (m.createdAt != null)
+                                  Text(
+                                    m.createdAt!.toIso8601String(),
+                                    style: const TextStyle(fontSize: 10),
+                                  ),
+                                const SizedBox(height: 4),
+                                Text(m.content),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-              const SizedBox(width: 10),
-              SizedBox(
-                width: 90,
-                child: OutlinedButton(
-                  onPressed: _send,
-                  child: const Text('Send'),
-                ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _msgController,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _send(),
+                      decoration: const InputDecoration(hintText: 'Type a message...'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 90,
+                    child: OutlinedButton(
+                      onPressed: _send,
+                      child: const Text('Send'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
