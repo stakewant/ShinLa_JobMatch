@@ -1,38 +1,40 @@
-enum ApplicationStatus { PENDING, ACCEPTED, REJECTED }
+enum ApplicationStatus { REQUESTED, ACCEPTED, REJECTED }
 
 class ApplicationOut {
   final int id;
   final int jobPostId;
-  final int companyId;
   final int studentId;
+  final int companyId;
   final ApplicationStatus status;
   final DateTime createdAt;
-
-  /// ACCEPTED면 roomId가 생긴다고 가정(서버 붙이면 서버 값으로 교체)
+  final DateTime? respondedAt;
   final int? roomId;
 
   ApplicationOut({
     required this.id,
     required this.jobPostId,
-    required this.companyId,
     required this.studentId,
+    required this.companyId,
     required this.status,
     required this.createdAt,
-    required this.roomId,
+    this.respondedAt,
+    this.roomId,
   });
 
-  ApplicationOut copyWith({
-    ApplicationStatus? status,
-    int? roomId,
-  }) {
+  factory ApplicationOut.fromJson(Map<String, dynamic> json) {
     return ApplicationOut(
-      id: id,
-      jobPostId: jobPostId,
-      companyId: companyId,
-      studentId: studentId,
-      status: status ?? this.status,
-      createdAt: createdAt,
-      roomId: roomId ?? this.roomId,
+      id: json['id'],
+      jobPostId: json['job_post_id'],
+      studentId: json['student_id'],
+      companyId: json['company_id'],
+      status: ApplicationStatus.values.firstWhere(
+            (e) => e.name == json['status'],
+      ),
+      createdAt: DateTime.parse(json['created_at']),
+      respondedAt: json['responded_at'] != null
+          ? DateTime.parse(json['responded_at'])
+          : null,
+      roomId: json['room_id'],
     );
   }
 }

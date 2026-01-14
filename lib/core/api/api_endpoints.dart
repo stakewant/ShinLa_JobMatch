@@ -59,17 +59,31 @@ class ApiEndpoints {
   /// Applications (Requests)
   /// =========================
 
-  // 학생: 요청 보내기
-  static const String applications = '/applications';
+  /// =========================
+  /// Applications (Chat Requests)
+  /// =========================
 
-  // 회사: 들어온 요청 목록 (예: /applications/incoming?status=PENDING)
-  static const String applicationsIncoming = '/applications/incoming';
+  // 학생: 채팅 요청 생성
+  // POST /api/chat/applications
+    static const String applications = '/applications';
+
+  // 회사: 들어온 요청 목록
+  // GET /api/chat/applications
+    static const String companyApplications = '/applications';
 
   // 학생: 내가 보낸 요청 목록
-  static const String applicationsOutgoing = '/applications/outgoing';
+  // GET /api/chat/applications/me
+    static const String myApplications = '/applications/me';
 
-  // 회사: 수락/거절
-  static String applicationAccept(String id) => '/applications/$id/accept';
-  static String applicationReject(String id) => '/applications/$id/reject';
+  // 회사: 수락
+  // POST /api/chat/applications/{id}/accept
+    static String applicationAccept(String id) =>
+        '/applications/$id/accept';
+
+  // 회사: 거절
+  // POST /api/chat/applications/{id}/reject
+    static String applicationReject(String id) =>
+        '/applications/$id/reject';
+
 
 }

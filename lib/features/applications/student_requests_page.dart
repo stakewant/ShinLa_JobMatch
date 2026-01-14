@@ -26,11 +26,8 @@ class _StudentRequestsPageState extends State<StudentRequestsPage> {
 
   Future<void> _refresh() async {
     final scope = AppScope.of(context);
-    final me = scope.auth.me;
-    if (me == null) return;
-
     try {
-      await scope.applications.refreshOutgoing(studentId: me.id);
+      await scope.applications.refreshOutgoing();
     } catch (e) {
       if (!mounted) return;
       UiUtils.snack(context, e.toString());
@@ -64,7 +61,7 @@ class _StudentRequestsPageState extends State<StudentRequestsPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Student id=${me.id} | pending=$pending',
+                      'pending=$pending',
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
@@ -80,10 +77,13 @@ class _StudentRequestsPageState extends State<StudentRequestsPage> {
                     ? const Center(child: Text('No requests yet.'))
                     : ListView.separated(
                   itemCount: items.length,
-                  separatorBuilder: (_, __) => const Divider(height: 10),
+                  separatorBuilder: (_, __) =>
+                  const Divider(height: 10),
                   itemBuilder: (_, i) {
                     final a = items[i];
-                    final canChat = a.status == ApplicationStatus.ACCEPTED && a.roomId != null;
+                    final canChat =
+                        a.status == ApplicationStatus.ACCEPTED &&
+                            a.roomId != null;
 
                     return Card(
                       child: Padding(
@@ -93,13 +93,15 @@ class _StudentRequestsPageState extends State<StudentRequestsPage> {
                           children: [
                             Text(
                               'Application #${a.id}',
-                              style: const TextStyle(fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 6),
                             Text('JobPost: ${a.jobPostId}'),
                             Text('Company: ${a.companyId}'),
                             Text('Status: ${a.status.name}'),
-                            if (a.roomId != null) Text('RoomId: ${a.roomId}'),
+                            if (a.roomId != null)
+                              Text('RoomId: ${a.roomId}'),
                             const SizedBox(height: 10),
                             Row(
                               children: [
@@ -110,7 +112,9 @@ class _StudentRequestsPageState extends State<StudentRequestsPage> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => ChatPage(roomId: a.roomId!),
+                                          builder: (_) => ChatPage(
+                                            roomId: a.roomId!,
+                                          ),
                                         ),
                                       );
                                     }

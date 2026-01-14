@@ -69,7 +69,9 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     if (!_ready) {
       return const MaterialApp(
-        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
       );
     }
 
@@ -136,28 +138,27 @@ class _HomePageState extends State<HomePage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // 홈 진입 시 1회만: 뱃지 최신화
     if (_booted) return;
     _booted = true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+
       final scope = AppScope.of(context);
       final me = scope.auth.me;
 
-      // 채팅 unread는 WS가 없으면 최신화가 어렵지만,
-      // 방 목록은 한번 갱신해두면 list 화면 진입이 부드러움
+      // 채팅방 목록 1회 갱신
       try {
         await scope.chat.refreshRooms();
       } catch (_) {}
 
-      // 요청 뱃지 최신화(역할별)
+      // 요청 뱃지 갱신 (JWT 기준)
       if (me != null) {
         try {
           if (me.role.name == 'COMPANY') {
-            await scope.applications.refreshIncoming(companyId: me.id);
-          } else {
-            await scope.applications.refreshOutgoing(studentId: me.id);
+            await scope.applications.refreshIncoming();
+          } else if (me.role.name == 'STUDENT') {
+            await scope.applications.refreshOutgoing();
           }
         } catch (_) {}
       }
@@ -166,6 +167,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _logout(BuildContext context) async {
     final scope = AppScope.of(context);
+
     await scope.auth.logout();
     scope.profile.clear();
     await scope.chat.disposeAllSockets();
@@ -262,10 +264,15 @@ class _HomePageState extends State<HomePage> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const CompanyRequestsPage()),
+                        MaterialPageRoute(
+                          builder: (_) => const CompanyRequestsPage(),
+                        ),
                       );
                     },
-                    child: _BadgeText(text: 'Requests (Company)', count: requestBadge),
+                    child: _BadgeText(
+                      text: 'Requests (Company)',
+                      count: requestBadge,
+                    ),
                   ),
                   const SizedBox(height: 10),
                 ] else if (isStudent) ...[
@@ -273,10 +280,15 @@ class _HomePageState extends State<HomePage> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const StudentRequestsPage()),
+                        MaterialPageRoute(
+                          builder: (_) => const StudentRequestsPage(),
+                        ),
                       );
                     },
-                    child: _BadgeText(text: 'My Requests (Student)', count: requestBadge),
+                    child: _BadgeText(
+                      text: 'My Requests (Student)',
+                      count: requestBadge,
+                    ),
                   ),
                   const SizedBox(height: 10),
                 ],
@@ -285,7 +297,9 @@ class _HomePageState extends State<HomePage> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const ProfilePage()),
+                      MaterialPageRoute(
+                        builder: (_) => const ProfilePage(),
+                      ),
                     );
                   },
                   child: const Text('Profile'),

@@ -179,10 +179,9 @@ class _JobDetailPageState extends State<JobDetailPage> {
               onPressed: () async {
                 try {
                   await scope.applications.sendRequest(
-                    studentId: me.id,
-                    companyId: job.companyId,
                     jobPostId: job.id,
                   );
+
 
                   if (!context.mounted) return;
                   UiUtils.snack(context, 'Request sent.');

@@ -22,10 +22,18 @@ class DioClient {
           if (t != null && t.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $t';
           }
+
+          // 🔥 이 로그가 핵심
+          print('FULL URL => ${options.uri}');
+          print('METHOD   => ${options.method}');
+          print('HEADERS  => ${options.headers}');
+          print('DATA     => ${options.data}');
+
           handler.next(options);
         },
       ),
     );
+
   }
 
   Dio get dio => _dio;

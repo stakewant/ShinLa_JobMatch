@@ -26,11 +26,8 @@ class _CompanyRequestsPageState extends State<CompanyRequestsPage> {
 
   Future<void> _refresh() async {
     final scope = AppScope.of(context);
-    final me = scope.auth.me;
-    if (me == null) return;
-
     try {
-      await scope.applications.refreshIncoming(companyId: me.id);
+      await scope.applications.refreshIncoming();
     } catch (e) {
       if (!mounted) return;
       UiUtils.snack(context, e.toString());
@@ -64,7 +61,7 @@ class _CompanyRequestsPageState extends State<CompanyRequestsPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Company id=${me.id} | pending=$pendingCount',
+                      'pending=$pendingCount',
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
@@ -83,7 +80,8 @@ class _CompanyRequestsPageState extends State<CompanyRequestsPage> {
                   separatorBuilder: (_, __) => const Divider(height: 10),
                   itemBuilder: (_, i) {
                     final a = items[i];
-                    final isPending = a.status == ApplicationStatus.PENDING;
+                    final isPending =
+                        a.status == ApplicationStatus.REQUESTED;
 
                     return Card(
                       child: Padding(
@@ -93,13 +91,15 @@ class _CompanyRequestsPageState extends State<CompanyRequestsPage> {
                           children: [
                             Text(
                               'Application #${a.id}',
-                              style: const TextStyle(fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 6),
                             Text('JobPost: ${a.jobPostId}'),
                             Text('Student: ${a.studentId}'),
                             Text('Status: ${a.status.name}'),
-                            if (a.roomId != null) Text('RoomId: ${a.roomId}'),
+                            if (a.roomId != null)
+                              Text('RoomId: ${a.roomId}'),
                             const SizedBox(height: 10),
                             Row(
                               children: [
@@ -109,28 +109,44 @@ class _CompanyRequestsPageState extends State<CompanyRequestsPage> {
                                         ? null
                                         : () async {
                                       try {
-                                        final updated = await scope.applications.accept(
+                                        await scope.applications
+                                            .accept(
                                           applicationId: a.id,
                                         );
-                                        await scope.applications.refreshIncoming(companyId: me.id);
 
-                                        if (!context.mounted) return;
+                                        if (!context.mounted)
+                                          return;
 
-                                        final roomId = updated.roomId;
-                                        if (roomId == null) {
-                                          UiUtils.snack(context, 'No roomId returned.');
+                                        // 최신 데이터에서 roomId 찾기
+                                        final updated =
+                                        scope.applications
+                                            .incoming
+                                            .firstWhere(
+                                              (x) => x.id == a.id,
+                                        );
+
+                                        if (updated.roomId == null) {
+                                          UiUtils.snack(
+                                            context,
+                                            'No roomId returned.',
+                                          );
                                           return;
                                         }
 
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (_) => ChatPage(roomId: roomId),
+                                            builder: (_) => ChatPage(
+                                              roomId:
+                                              updated.roomId!,
+                                            ),
                                           ),
                                         );
                                       } catch (e) {
-                                        if (!context.mounted) return;
-                                        UiUtils.snack(context, e.toString());
+                                        if (!context.mounted)
+                                          return;
+                                        UiUtils.snack(
+                                            context, e.toString());
                                       }
                                     },
                                     child: const Text('Accept'),
@@ -143,14 +159,20 @@ class _CompanyRequestsPageState extends State<CompanyRequestsPage> {
                                         ? null
                                         : () async {
                                       try {
-                                        await scope.applications.reject(applicationId: a.id);
-                                        await scope.applications.refreshIncoming(companyId: me.id);
+                                        await scope.applications
+                                            .reject(
+                                          applicationId: a.id,
+                                        );
 
-                                        if (!context.mounted) return;
-                                        UiUtils.snack(context, 'Rejected.');
+                                        if (!context.mounted)
+                                          return;
+                                        UiUtils.snack(
+                                            context, 'Rejected.');
                                       } catch (e) {
-                                        if (!context.mounted) return;
-                                        UiUtils.snack(context, e.toString());
+                                        if (!context.mounted)
+                                          return;
+                                        UiUtils.snack(
+                                            context, e.toString());
                                       }
                                     },
                                     child: const Text('Reject'),

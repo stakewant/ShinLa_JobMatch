@@ -23,71 +23,71 @@ class ApplicationController extends ChangeNotifier {
   // Badge counters
   // =========================
   int get pendingIncomingCount =>
-      _incoming.where((a) => a.status == ApplicationStatus.PENDING).length;
+      _incoming.where((a) => a.status == ApplicationStatus.REQUESTED).length;
 
   int get pendingOutgoingCount =>
-      _outgoing.where((a) => a.status == ApplicationStatus.PENDING).length;
+      _outgoing.where((a) => a.status == ApplicationStatus.REQUESTED).length;
 
   int get acceptedOutgoingCount =>
       _outgoing.where((a) => a.status == ApplicationStatus.ACCEPTED).length;
 
-  /// 학생: 요청 보내기
+  // =========================
+  // 학생: 요청 보내기
+  // =========================
   Future<void> sendRequest({
-    required int studentId,
-    required int companyId,
     required int jobPostId,
   }) async {
-    await _api.sendRequest(
-      jobPostId: jobPostId,
-      companyId: companyId,
-      studentId: studentId,
-    );
+    await _api.sendRequest(jobPostId: jobPostId);
 
-    // 학생 목록 즉시 갱신(뱃지 포함)
-    await refreshOutgoing(studentId: studentId);
+    // 서버 기준 재조회
+    await refreshOutgoing();
   }
 
-  /// 회사: 들어온 요청 목록
-  Future<void> refreshIncoming({
-    required int companyId,
-  }) async {
+  // =========================
+  // 회사: 들어온 요청 목록
+  // =========================
+  Future<void> refreshIncoming() async {
     _loadingIncoming = true;
     notifyListeners();
     try {
-      _incoming = await _api.listIncoming(companyId: companyId);
+      _incoming = await _api.listIncoming();
     } finally {
       _loadingIncoming = false;
       notifyListeners();
     }
   }
 
-  /// 학생: 내가 보낸 요청 목록
-  Future<void> refreshOutgoing({
-    required int studentId,
-  }) async {
+  // =========================
+  // 학생: 내가 보낸 요청 목록
+  // =========================
+  Future<void> refreshOutgoing() async {
     _loadingOutgoing = true;
     notifyListeners();
     try {
-      _outgoing = await _api.listOutgoing(studentId: studentId);
+      _outgoing = await _api.listOutgoing();
     } finally {
       _loadingOutgoing = false;
       notifyListeners();
     }
   }
 
-  /// 회사: 수락
-  Future<ApplicationOut> accept({
+  // =========================
+  // 회사: 수락
+  // =========================
+  Future<void> accept({
     required int applicationId,
   }) async {
-    final updated = await _api.accept(applicationId: applicationId);
-    return updated;
+    await _api.accept(applicationId: applicationId);
+    await refreshIncoming();
   }
 
-  /// 회사: 거절
-  Future<ApplicationOut> reject({
+  // =========================
+  // 회사: 거절
+  // =========================
+  Future<void> reject({
     required int applicationId,
   }) async {
-    final updated = await _api.reject(applicationId: applicationId);
-    return updated;
+    await _api.reject(applicationId: applicationId);
+    await refreshIncoming();
   }
 }
