@@ -5,6 +5,7 @@ import '../../core/common/widgets.dart';
 import '../../main.dart';
 import '../auth/auth_model.dart';
 import '../chat/chat_page.dart';
+import '../profile/applicant_profile_view_page.dart';
 import 'application_model.dart';
 
 class CompanyRequestsPage extends StatefulWidget {
@@ -31,6 +32,23 @@ class _CompanyRequestsPageState extends State<CompanyRequestsPage> {
     } catch (e) {
       if (!mounted) return;
       UiUtils.snack(context, e.toString());
+    }
+  }
+
+  Future<void> _viewProfile(int studentId) async {
+    final scope = AppScope.of(context);
+    try {
+      final p = await scope.profile.loadApplicantProfile(studentId);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ApplicantProfileViewPage(profile: p),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      UiUtils.snack(context, 'Failed to load profile: $e');
     }
   }
 
@@ -80,8 +98,7 @@ class _CompanyRequestsPageState extends State<CompanyRequestsPage> {
                   separatorBuilder: (_, __) => const Divider(height: 10),
                   itemBuilder: (_, i) {
                     final a = items[i];
-                    final isPending =
-                        a.status == ApplicationStatus.REQUESTED;
+                    final isPending = a.status == ApplicationStatus.REQUESTED;
 
                     return Card(
                       child: Padding(
@@ -91,16 +108,23 @@ class _CompanyRequestsPageState extends State<CompanyRequestsPage> {
                           children: [
                             Text(
                               'Application #${a.id}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700),
+                              style: const TextStyle(fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 6),
                             Text('JobPost: ${a.jobPostId}'),
                             Text('Student: ${a.studentId}'),
                             Text('Status: ${a.status.name}'),
-                            if (a.roomId != null)
-                              Text('RoomId: ${a.roomId}'),
+                            if (a.roomId != null) Text('RoomId: ${a.roomId}'),
                             const SizedBox(height: 10),
+
+                            // ✅ 목록에서 바로 프로필 보기
+                            OutlinedButton(
+                              onPressed: () => _viewProfile(a.studentId),
+                              child: const Text('View Profile'),
+                            ),
+
+                            const SizedBox(height: 10),
+
                             Row(
                               children: [
                                 Expanded(
@@ -109,27 +133,17 @@ class _CompanyRequestsPageState extends State<CompanyRequestsPage> {
                                         ? null
                                         : () async {
                                       try {
-                                        await scope.applications
-                                            .accept(
+                                        await scope.applications.accept(
                                           applicationId: a.id,
                                         );
 
-                                        if (!context.mounted)
-                                          return;
+                                        if (!context.mounted) return;
 
-                                        // 최신 데이터에서 roomId 찾기
-                                        final updated =
-                                        scope.applications
-                                            .incoming
-                                            .firstWhere(
-                                              (x) => x.id == a.id,
-                                        );
+                                        final updated = scope.applications.incoming
+                                            .firstWhere((x) => x.id == a.id);
 
                                         if (updated.roomId == null) {
-                                          UiUtils.snack(
-                                            context,
-                                            'No roomId returned.',
-                                          );
+                                          UiUtils.snack(context, 'No roomId returned.');
                                           return;
                                         }
 
@@ -137,16 +151,13 @@ class _CompanyRequestsPageState extends State<CompanyRequestsPage> {
                                           context,
                                           MaterialPageRoute(
                                             builder: (_) => ChatPage(
-                                              roomId:
-                                              updated.roomId!,
+                                              roomId: updated.roomId!,
                                             ),
                                           ),
                                         );
                                       } catch (e) {
-                                        if (!context.mounted)
-                                          return;
-                                        UiUtils.snack(
-                                            context, e.toString());
+                                        if (!context.mounted) return;
+                                        UiUtils.snack(context, e.toString());
                                       }
                                     },
                                     child: const Text('Accept'),
@@ -159,20 +170,15 @@ class _CompanyRequestsPageState extends State<CompanyRequestsPage> {
                                         ? null
                                         : () async {
                                       try {
-                                        await scope.applications
-                                            .reject(
+                                        await scope.applications.reject(
                                           applicationId: a.id,
                                         );
 
-                                        if (!context.mounted)
-                                          return;
-                                        UiUtils.snack(
-                                            context, 'Rejected.');
+                                        if (!context.mounted) return;
+                                        UiUtils.snack(context, 'Rejected.');
                                       } catch (e) {
-                                        if (!context.mounted)
-                                          return;
-                                        UiUtils.snack(
-                                            context, e.toString());
+                                        if (!context.mounted) return;
+                                        UiUtils.snack(context, e.toString());
                                       }
                                     },
                                     child: const Text('Reject'),

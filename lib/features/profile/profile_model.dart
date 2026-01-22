@@ -1,44 +1,31 @@
 class StudentDocument {
   final String type; // 'resume' | 'cover_letter'
-  final String? localPath; // 앱에서만 사용 (나중에 서버 업로드 후 url로 전환 가능)
-  final String? url; // 서버 연동 시 사용
+  final String? localPath; // 앱에서 선택한 로컬 경로(업로드 전 단계)
   final String? filename;
+  final String? url; // 서버 업로드 후 url
 
-  const StudentDocument({
+  StudentDocument({
     required this.type,
     this.localPath,
-    this.url,
     this.filename,
+    this.url,
   });
 
   factory StudentDocument.fromJson(Map<String, dynamic> j) {
     return StudentDocument(
       type: (j['type'] as String?) ?? '',
       localPath: j['local_path'] as String?,
-      url: j['url'] as String?,
       filename: j['filename'] as String?,
+      url: j['url'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'type': type,
     'local_path': localPath,
-    'url': url,
     'filename': filename,
+    'url': url,
   };
-
-  StudentDocument copyWith({
-    String? localPath,
-    String? url,
-    String? filename,
-  }) {
-    return StudentDocument(
-      type: type,
-      localPath: localPath ?? this.localPath,
-      url: url ?? this.url,
-      filename: filename ?? this.filename,
-    );
-  }
 }
 
 class StudentProfile {
@@ -49,13 +36,13 @@ class StudentProfile {
   final List<String> skills;
   final String? availableTime;
 
-  // ✅ 추가: 링크
+  // ✅ 링크
   final String? githubUrl;
   final String? portfolioUrl;
   final String? linkedinUrl;
   final String? notionUrl;
 
-  // ✅ 추가: 문서(앱에서 선택 상태 유지 / 서버 붙이면 url로 채움)
+  // ✅ 문서
   final List<StudentDocument> documents;
 
   StudentProfile({
@@ -81,9 +68,7 @@ class StudentProfile {
     final rawDocs = j['documents'];
     final docs = (rawDocs is List)
         ? rawDocs
-        .where((e) => e is Map)
-        .map((e) => StudentDocument.fromJson(
-        Map<String, dynamic>.from(e as Map)))
+        .map((e) => StudentDocument.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList()
         : <StudentDocument>[];
 
@@ -104,23 +89,8 @@ class StudentProfile {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-    'user_id': userId,
-    'name': name,
-    'school': school,
-    'major': major,
-    'skills': skills,
-    'available_time': availableTime,
-
-    'github_url': githubUrl,
-    'portfolio_url': portfolioUrl,
-    'linkedin_url': linkedinUrl,
-    'notion_url': notionUrl,
-
-    'documents': documents.map((e) => e.toJson()).toList(),
-  };
-
   StudentProfile copyWith({
+    int? userId,
     String? name,
     String? school,
     String? major,
@@ -133,7 +103,7 @@ class StudentProfile {
     List<StudentDocument>? documents,
   }) {
     return StudentProfile(
-      userId: userId,
+      userId: userId ?? this.userId,
       name: name ?? this.name,
       school: school ?? this.school,
       major: major ?? this.major,

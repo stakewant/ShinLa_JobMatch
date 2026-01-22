@@ -7,7 +7,6 @@ class ApiEndpoints {
   static const String baseUrl = 'http://15.164.85.176:8000/api';
 
   // WebSocket (FastAPI)
-  // ws:// 또는 wss:// (HTTPS면 wss)
   static const String wsBaseUrl = 'ws://15.164.85.176:8000/api';
 
   /// =========================
@@ -25,92 +24,52 @@ class ApiEndpoints {
   /// =========================
   /// Job Posts
   /// =========================
-  // Swagger 기준: /api/job-posts
   static const String jobPosts = '/job-posts';
 
-  // GET /api/job-posts/{job_post_id}
-  static String jobPostDetail(String jobPostId) =>
-      '/job-posts/$jobPostId';
-
-  // POST /api/job-posts/{job_post_id}/images
-  static String jobPostImages(String jobPostId) =>
-      '/job-posts/$jobPostId/images';
+  static String jobPostDetail(String jobPostId) => '/job-posts/$jobPostId';
+  static String jobPostImages(String jobPostId) => '/job-posts/$jobPostId/images';
 
   /// =========================
   /// Chat (REST)
   /// =========================
-  // GET  /api/chat/rooms
-  // POST /api/chat/rooms
   static const String chatRooms = '/chat/rooms';
-
-  // (현재 서버에는 상세 조회 API 없음 → placeholder)
-  // 필요하면 서버에 추가 후 사용
-  static String chatRoomDetail(String roomId) =>
-      '/chat/rooms/$roomId';
+  static String chatRoomDetail(String roomId) => '/chat/rooms/$roomId';
 
   /// =========================
   /// Chat (WebSocket)
   /// =========================
-  // ws://host:8000/api/ws/chat/{roomId}?token=...
-  static String chatWebSocket(String roomId) =>
-      '/ws/chat/$roomId';
-
-  /// =========================
-  /// Applications (Requests)
-  /// =========================
+  static String chatWebSocket(String roomId) => '/ws/chat/$roomId';
 
   /// =========================
   /// Applications (Chat Requests)
   /// =========================
-
-  // 학생: 채팅 요청 생성
-  // POST /api/chat/applications
-    static const String applications = '/applications';
-
-  // 회사: 들어온 요청 목록
-  // GET /api/chat/applications
-    static const String companyApplications = '/applications';
-
-  // 학생: 내가 보낸 요청 목록
-  // GET /api/chat/applications/me
-    static const String myApplications = '/applications/me';
-
-  // 회사: 수락
-  // POST /api/chat/applications/{id}/accept
-    static String applicationAccept(String id) =>
-        '/applications/$id/accept';
-
-  // 회사: 거절
-  // POST /api/chat/applications/{id}/reject
-    static String applicationReject(String id) =>
-        '/applications/$id/reject';
+  static const String applications = '/applications';
+  static const String companyApplications = '/applications';
+  static const String myApplications = '/applications/me';
+  static String applicationAccept(String id) => '/applications/$id/accept';
+  static String applicationReject(String id) => '/applications/$id/reject';
 
   /// =========================
   /// Chatbot (AI Assistant)
   /// =========================
-
-  // POST /api/chatbot/chat - 챗봇에게 메시지 전송
   static const String chatbotChat = '/chatbot/chat';
-
-  // GET /api/chatbot/intents - 사용 가능한 인텐트 목록
   static const String chatbotIntents = '/chatbot/intents';
 
+  // ✅ 학생 문서 (⚠ /api 제거)
+  static const String myStudentDocuments = '/users/me/student-documents';
 
-  // ✅ 추가: 학생 문서
-  static const String myStudentDocuments = '/api/users/me/student-documents';
+  // ✅ 회사 지원자 목록 (⚠ /api 제거)
+  static const String companyMyApplicants = '/companies/me/applicants';
 
-  // ✅ 추가: 회사 지원자 목록
-  static const String companyMyApplicants = '/api/companies/me/applicants';
-
-  // ✅ 추가: 회사 지원자 프로필
+  // ✅ 회사 지원자 프로필 (⚠ /api 제거)
   static String companyApplicantProfile(int studentId) =>
-      '/api/companies/me/applicants/$studentId/profile';
+      '/companies/me/applicants/$studentId/profile';
 
-  // ✅ 추가: 회사 지원자 문서 목록
+  // ✅ 회사 지원자 문서 목록 (⚠ /api 제거)
   static String companyApplicantDocuments(int studentId) =>
-      '/api/companies/me/applicants/$studentId/documents';
+      '/companies/me/applicants/$studentId/documents';
 
-  // ✅ 추가: 회사 지원자 문서 다운로드 URL
+  // ✅ 회사 지원자 문서 다운로드 URL (⚠ /api 제거)
   static String companyApplicantDocumentDownload(int studentId, String type) =>
-      '/api/companies/me/applicants/$studentId/documents/$type/download';
+      '/companies/me/applicants/$studentId/documents/$type/download';
 }

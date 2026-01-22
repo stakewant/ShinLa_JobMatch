@@ -11,35 +11,49 @@ class ProfileController extends ChangeNotifier {
   StudentProfile? _myStudentProfile;
   StudentProfile? get myStudentProfile => _myStudentProfile;
 
-  // ✅ 앱-only: "지원자(학생) 프로필" 캐시 (회사 화면에서 조회용)
+  // ✅ 데모/캐시: 회사 화면에서 지원자 목록으로 쓸 수 있게 저장
   final Map<int, StudentProfile> _studentCache = {};
   List<StudentProfile> get cachedStudentProfiles =>
-      _studentCache.values.toList()..sort((a, b) => a.userId.compareTo(b.userId));
+      _studentCache.values.toList()
+        ..sort((a, b) => a.userId.compareTo(b.userId));
 
-  void _cacheStudent(StudentProfile p) {
+  void _cache(StudentProfile p) {
     _studentCache[p.userId] = p;
   }
 
-  StudentProfile? getCachedStudentProfile(int userId) => _studentCache[userId];
+  // -----------------------------
+  // STUDENT: 내 프로필 로드/저장
+  // -----------------------------
 
-  /// 기존: 서버에서 내 학생 프로필 로드
   Future<void> loadMyStudentProfile() async {
-    _myStudentProfile = await _api.getMyStudentProfile();
+    final p = await _api.getMyStudentProfile();
 
-    // ✅ 로드된 내 프로필은 캐시에 저장 (회사 화면 데모용)
-    if (_myStudentProfile != null) _cacheStudent(_myStudentProfile!);
+    // ✅ 서버가 링크/문서를 아직 안 내려줄 수 있으니, 로컬 상태 유지 병합
+    final prev = _myStudentProfile;
+    _myStudentProfile = p.copyWith(
+      githubUrl: prev?.githubUrl,
+      portfolioUrl: prev?.portfolioUrl,
+      linkedinUrl: prev?.linkedinUrl,
+      notionUrl: prev?.notionUrl,
+      documents: prev?.documents,
+    );
 
+    if (_myStudentProfile != null) _cache(_myStudentProfile!);
     notifyListeners();
   }
 
-  /// 기존: 서버에 내 학생 프로필 저장(기본 필드)
-  /// - 링크/문서 업로드는 서버 준비 후 확장 예정
   Future<StudentProfile> saveMyStudentProfile({
     required String name,
     String? school,
     String? major,
     required List<String> skills,
     String? availableTime,
+
+    // (선택) 서버가 링크도 받는 시점이면 여기에 넣어도 됨
+    String? githubUrl,
+    String? portfolioUrl,
+    String? linkedinUrl,
+    String? notionUrl,
   }) async {
     final saved = await _api.upsertMyStudentProfile(
       name: name,
@@ -47,10 +61,14 @@ class ProfileController extends ChangeNotifier {
       major: major,
       skills: skills,
       availableTime: availableTime,
+
+      githubUrl: githubUrl,
+      portfolioUrl: portfolioUrl,
+      linkedinUrl: linkedinUrl,
+      notionUrl: notionUrl,
     );
 
-    // ✅ 서버 응답에 링크/문서가 아직 없을 수 있으니
-    // 기존 앱 상태에 들어있던 링크/문서를 보존하도록 병합
+    // ✅ 로컬 링크/문서 보존 병합
     final prev = _myStudentProfile;
     _myStudentProfile = saved.copyWith(
       githubUrl: prev?.githubUrl,
@@ -60,14 +78,15 @@ class ProfileController extends ChangeNotifier {
       documents: prev?.documents,
     );
 
-    // ✅ 저장 후 캐시에도 업데이트
-    if (_myStudentProfile != null) _cacheStudent(_myStudentProfile!);
-
+    if (_myStudentProfile != null) _cache(_myStudentProfile!);
     notifyListeners();
     return _myStudentProfile!;
   }
 
-  /// ✅ 앱에서만: 링크 상태 반영(서버 붙기 전 단계)
+  // -----------------------------
+  // ✅ 앱-only: 링크/문서 로컬 반영
+  // -----------------------------
+
   void setLinksLocal({
     String? githubUrl,
     String? portfolioUrl,
@@ -84,13 +103,10 @@ class ProfileController extends ChangeNotifier {
       notionUrl: notionUrl,
     );
 
-    // ✅ 캐시에도 반영
-    _cacheStudent(_myStudentProfile!);
-
+    _cache(_myStudentProfile!);
     notifyListeners();
   }
 
-  /// ✅ 앱에서만: 파일 선택(업로드는 아직 X)
   Future<PlatformFile?> pickDocumentFile() async {
     final res = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -101,7 +117,6 @@ class ProfileController extends ChangeNotifier {
     return res.files.single;
   }
 
-  /// ✅ 앱에서만: 선택한 파일을 프로필 상태에 반영(업로드 전)
   void setLocalDocument({
     required String type, // 'resume' | 'cover_letter'
     required String localPath,
@@ -128,14 +143,25 @@ class ProfileController extends ChangeNotifier {
 
     _myStudentProfile = p.copyWith(documents: docs);
 
-    // ✅ 캐시에도 반영
-    _cacheStudent(_myStudentProfile!);
-
+    _cache(_myStudentProfile!);
     notifyListeners();
+  }
+
+  // -----------------------------
+  // COMPANY: 지원자 프로필 조회
+  // -----------------------------
+  Future<StudentProfile> loadApplicantProfile(int studentId) async {
+    final p = await _api.getApplicantProfile(studentId);
+
+    // ✅ 회사가 본 지원자도 캐시에 넣어두면 ApplicantsPage에서도 활용 가능
+    _cache(p);
+    notifyListeners();
+    return p;
   }
 
   void clear() {
     _myStudentProfile = null;
+    _studentCache.clear();
     notifyListeners();
   }
 }
