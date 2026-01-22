@@ -190,195 +190,199 @@ class _ProfilePageState extends State<ProfilePage> {
       title: 'Profile',
       body: me == null
           ? const Center(child: Text('Not signed in.'))
-          : Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('User ID: ${me.id}',
-                      style:
-                      const TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 6),
-                  Text('Role: ${me.role.name}'),
-                  Text('Email: ${me.email ?? "-"}'),
-                  Text('Phone: ${me.phone ?? "-"}'),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          PrimaryButton(
-            text: 'View as Page',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => UserProfilePage(
-                    user: me,
-                    studentProfile: studentProfile,
-                  ),
+          : SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('User ID: ${me.id}',
+                        style:
+                        const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    Text('Role: ${me.role.name}'),
+                    Text('Email: ${me.email ?? "-"}'),
+                    Text('Phone: ${me.phone ?? "-"}'),
+                  ],
                 ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 16),
-
-          if (me.role == UserRole.STUDENT) ...[
-            const Text('Student Profile',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 10),
-
-            Labeled(label: 'Name', child: TextField(controller: _nameCtrl)),
-            const SizedBox(height: 12),
-            Labeled(
-                label: 'School (optional)',
-                child: TextField(controller: _schoolCtrl)),
-            const SizedBox(height: 12),
-            Labeled(
-                label: 'Major (optional)',
-                child: TextField(controller: _majorCtrl)),
-            const SizedBox(height: 12),
-            Labeled(
-              label: 'Skills (comma-separated)',
-              child: TextField(
-                controller: _skillsCtrl,
-                decoration: const InputDecoration(
-                    hintText: 'e.g. Flutter, Python, SQL'),
               ),
             ),
             const SizedBox(height: 12),
-            Labeled(
-              label: 'Available Time (optional)',
-              child: TextField(
-                controller: _availableCtrl,
-                decoration: const InputDecoration(
-                    hintText: 'e.g. Weekdays 18:00~22:00'),
-              ),
-            ),
 
-            const SizedBox(height: 16),
-            const Text('Links',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 10),
-
-            Labeled(
-                label: 'GitHub URL (http/https)',
-                child: TextField(controller: _githubCtrl)),
-            const SizedBox(height: 12),
-            Labeled(
-                label: 'Portfolio URL (http/https)',
-                child: TextField(controller: _portfolioCtrl)),
-            const SizedBox(height: 12),
-            Labeled(
-                label: 'LinkedIn URL (http/https)',
-                child: TextField(controller: _linkedinCtrl)),
-            const SizedBox(height: 12),
-            Labeled(
-                label: 'Notion URL (http/https)',
-                child: TextField(controller: _notionCtrl)),
-
-            const SizedBox(height: 16),
-            const Text('Documents (select only)',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 10),
-
-            Row(
-              children: [
-                Expanded(
-                  child: PrimaryButton(
-                    text: 'Select Resume',
-                    onPressed: _loading
-                        ? null
-                        : () async {
-                      final file =
-                      await scope.profile.pickDocumentFile();
-                      if (file == null || file.path == null) return;
-
-                      scope.profile.setLocalDocument(
-                        type: 'resume',
-                        localPath: file.path!,
-                        filename: file.name,
-                      );
-                      if (!mounted) return;
-                      UiUtils.snack(context,
-                          'Resume selected (not uploaded yet).');
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: PrimaryButton(
-                    text: 'Select Cover Letter',
-                    onPressed: _loading
-                        ? null
-                        : () async {
-                      final file =
-                      await scope.profile.pickDocumentFile();
-                      if (file == null || file.path == null) return;
-
-                      scope.profile.setLocalDocument(
-                        type: 'cover_letter',
-                        localPath: file.path!,
-                        filename: file.name,
-                      );
-                      if (!mounted) return;
-                      UiUtils.snack(context,
-                          'Cover letter selected (not uploaded yet).');
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Resume: ${resume?.filename ?? "-"}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            Text(
-              'Cover: ${cover?.filename ?? "-"}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Note: Files are only selected on device. Upload will be added after server API is ready.',
-              style: TextStyle(fontSize: 11),
-            ),
-
-            const SizedBox(height: 16),
             PrimaryButton(
-              text: _loading ? 'Saving...' : 'Save',
-              onPressed: _loading ? null : _saveStudentProfile,
-            ),
-          ] else ...[
-            const Text(
-              'Company Menu',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 10),
-            PrimaryButton(
-              text: 'View Applicants (Demo)',
+              text: 'View as Page',
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ApplicantsPage()),
+                  MaterialPageRoute(
+                    builder: (_) => UserProfilePage(
+                      user: me,
+                      studentProfile: studentProfile,
+                    ),
+                  ),
                 );
               },
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Applicants list is demo based on cached student profiles.\n'
-                  'After backend is ready, this will show real applicants.',
-              style: TextStyle(fontSize: 12),
-            ),
-          ],
 
-        ],
+            const SizedBox(height: 16),
+
+            if (me.role == UserRole.STUDENT) ...[
+              const Text('Student Profile',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 10),
+
+              Labeled(label: 'Name', child: TextField(controller: _nameCtrl)),
+              const SizedBox(height: 12),
+              Labeled(
+                  label: 'School (optional)',
+                  child: TextField(controller: _schoolCtrl)),
+              const SizedBox(height: 12),
+              Labeled(
+                  label: 'Major (optional)',
+                  child: TextField(controller: _majorCtrl)),
+              const SizedBox(height: 12),
+              Labeled(
+                label: 'Skills (comma-separated)',
+                child: TextField(
+                  controller: _skillsCtrl,
+                  decoration: const InputDecoration(
+                      hintText: 'e.g. Flutter, Python, SQL'),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Labeled(
+                label: 'Available Time (optional)',
+                child: TextField(
+                  controller: _availableCtrl,
+                  decoration: const InputDecoration(
+                      hintText: 'e.g. Weekdays 18:00~22:00'),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+              const Text('Links',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 10),
+
+              Labeled(
+                  label: 'GitHub URL (http/https)',
+                  child: TextField(controller: _githubCtrl)),
+              const SizedBox(height: 12),
+              Labeled(
+                  label: 'Portfolio URL (http/https)',
+                  child: TextField(controller: _portfolioCtrl)),
+              const SizedBox(height: 12),
+              Labeled(
+                  label: 'LinkedIn URL (http/https)',
+                  child: TextField(controller: _linkedinCtrl)),
+              const SizedBox(height: 12),
+              Labeled(
+                  label: 'Notion URL (http/https)',
+                  child: TextField(controller: _notionCtrl)),
+
+              const SizedBox(height: 16),
+              const Text('Documents (select only)',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 10),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: PrimaryButton(
+                      text: 'Select Resume',
+                      onPressed: _loading
+                          ? null
+                          : () async {
+                        final file =
+                        await scope.profile.pickDocumentFile();
+                        if (file == null || file.path == null) return;
+
+                        scope.profile.setLocalDocument(
+                          type: 'resume',
+                          localPath: file.path!,
+                          filename: file.name,
+                        );
+                        if (!mounted) return;
+                        UiUtils.snack(context,
+                            'Resume selected (not uploaded yet).');
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: PrimaryButton(
+                      text: 'Select Cover Letter',
+                      onPressed: _loading
+                          ? null
+                          : () async {
+                        final file =
+                        await scope.profile.pickDocumentFile();
+                        if (file == null || file.path == null) return;
+
+                        scope.profile.setLocalDocument(
+                          type: 'cover_letter',
+                          localPath: file.path!,
+                          filename: file.name,
+                        );
+                        if (!mounted) return;
+                        UiUtils.snack(context,
+                            'Cover letter selected (not uploaded yet).');
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Resume: ${resume?.filename ?? "-"}',
+                style: const TextStyle(fontSize: 12),
+              ),
+              Text(
+                'Cover: ${cover?.filename ?? "-"}',
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Note: Files are only selected on device. Upload will be added after server API is ready.',
+                style: TextStyle(fontSize: 11),
+              ),
+
+              const SizedBox(height: 16),
+              PrimaryButton(
+                text: _loading ? 'Saving...' : 'Save',
+                onPressed: _loading ? null : _saveStudentProfile,
+              ),
+            ] else ...[
+              const Text(
+                'Company Menu',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 10),
+              PrimaryButton(
+                text: 'View Applicants (Demo)',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ApplicantsPage()),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Applicants list is demo based on cached student profiles.\n'
+                    'After backend is ready, this will show real applicants.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+
+            // 추가 여백 (맨 아래 공간 확보)
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }
