@@ -95,4 +95,22 @@ class ApiEndpoints {
   // GET /api/chatbot/intents - 사용 가능한 인텐트 목록
   static const String chatbotIntents = '/chatbot/intents';
 
+
+  // ✅ 추가: 학생 문서
+  static const String myStudentDocuments = '/api/users/me/student-documents';
+
+  // ✅ 추가: 회사 지원자 목록
+  static const String companyMyApplicants = '/api/companies/me/applicants';
+
+  // ✅ 추가: 회사 지원자 프로필
+  static String companyApplicantProfile(int studentId) =>
+      '/api/companies/me/applicants/$studentId/profile';
+
+  // ✅ 추가: 회사 지원자 문서 목록
+  static String companyApplicantDocuments(int studentId) =>
+      '/api/companies/me/applicants/$studentId/documents';
+
+  // ✅ 추가: 회사 지원자 문서 다운로드 URL
+  static String companyApplicantDocumentDownload(int studentId, String type) =>
+      '/api/companies/me/applicants/$studentId/documents/$type/download';
 }
