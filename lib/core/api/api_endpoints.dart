@@ -85,5 +85,14 @@ class ApiEndpoints {
     static String applicationReject(String id) =>
         '/applications/$id/reject';
 
+  /// =========================
+  /// Chatbot (AI Assistant)
+  /// =========================
+
+  // POST /api/chatbot/chat - 챗봇에게 메시지 전송
+  static const String chatbotChat = '/chatbot/chat';
+
+  // GET /api/chatbot/intents - 사용 가능한 인텐트 목록
+  static const String chatbotIntents = '/chatbot/intents';
 
 }

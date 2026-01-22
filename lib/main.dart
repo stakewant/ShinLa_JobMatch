@@ -23,6 +23,10 @@ import 'features/applications/application_controller.dart';
 import 'features/applications/company_requests_page.dart';
 import 'features/applications/student_requests_page.dart';
 
+import 'features/chatbot/chatbot_api.dart';
+import 'features/chatbot/chatbot_controller.dart';
+import 'features/chatbot/chatbot_page.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -42,6 +46,7 @@ class _MyAppState extends State<MyApp> {
   late final ChatController _chat;
   late final ProfileController _profile;
   late final ApplicationController _applications;
+  late final ChatbotController _chatbot;
 
   bool _ready = false;
 
@@ -56,6 +61,7 @@ class _MyAppState extends State<MyApp> {
     _chat = ChatController(ChatApi(_client));
     _profile = ProfileController(ProfileApi(_client));
     _applications = ApplicationController(ApplicationApi(_client));
+    _chatbot = ChatbotController(ChatbotApi(_client));
 
     _boot();
   }
@@ -81,6 +87,7 @@ class _MyAppState extends State<MyApp> {
       chat: _chat,
       profile: _profile,
       applications: _applications,
+      chatbot: _chatbot,
       child: MaterialApp(
         title: 'ShinLa JobMatch',
         theme: AppTheme.light(),
@@ -96,6 +103,7 @@ class AppScope extends InheritedWidget {
   final ChatController chat;
   final ProfileController profile;
   final ApplicationController applications;
+  final ChatbotController chatbot;
 
   const AppScope({
     super.key,
@@ -104,6 +112,7 @@ class AppScope extends InheritedWidget {
     required this.chat,
     required this.profile,
     required this.applications,
+    required this.chatbot,
     required super.child,
   });
 
@@ -120,7 +129,8 @@ class AppScope extends InheritedWidget {
         jobs != oldWidget.jobs ||
         chat != oldWidget.chat ||
         profile != oldWidget.profile ||
-        applications != oldWidget.applications;
+        applications != oldWidget.applications ||
+        chatbot != oldWidget.chatbot;
   }
 }
 
@@ -172,6 +182,7 @@ class _HomePageState extends State<HomePage> {
     scope.profile.clear();
     await scope.chat.disposeAllSockets();
     scope.chat.clearUnreadAll();
+    scope.chatbot.clearMessages();
 
     if (context.mounted) {
       Navigator.pushAndRemoveUntil(
@@ -256,6 +267,25 @@ class _HomePageState extends State<HomePage> {
                     );
                   },
                   child: _BadgeText(text: 'Chats', count: chatBadge),
+                ),
+                const SizedBox(height: 10),
+
+                // Chatbot 버튼 - 단순 페이지 이동
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChatbotPage()),
+                    );
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.smart_toy, size: 20),
+                      SizedBox(width: 8),
+                      Text('AI Assistant'),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 10),
 
